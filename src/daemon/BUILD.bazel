@@ -141,6 +141,7 @@ qt_cc_binary(
         "//src/auth:auth",
         "//src/common:common",
         "//src/common:constants",
+        "//src/common:fingerprint_probe",
         "//src/lock-common:lock_style",
     ],
 )

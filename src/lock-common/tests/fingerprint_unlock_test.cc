@@ -15,18 +15,18 @@
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "fingerprintunlock.h"
+#include "FingerprintSession.h"
 
 #include <QSignalSpy>
 #include <QTest>
 
 namespace {
 
-using gxde::lock::FingerprintUnlock;
-using State = FingerprintUnlock::State;
+using gxde::FingerprintSession;
+using State = FingerprintSession::State;
 
 // Replaces fprintd and gxdm-helper: records calls, and lets the test answer.
-class FakeFingerprint : public FingerprintUnlock {
+class FakeFingerprint : public FingerprintSession {
  public:
   FakeFingerprint() { SetQuickFailureMs(200); }
 
@@ -34,9 +34,9 @@ class FakeFingerprint : public FingerprintUnlock {
   int runs = 0;
   int stops = 0;
 
-  using FingerprintUnlock::ProbeFinished;
-  using FingerprintUnlock::RunFinished;
-  using FingerprintUnlock::RunRejected;
+  using FingerprintSession::ProbeFinished;
+  using FingerprintSession::RunFinished;
+  using FingerprintSession::RunRejected;
 
  protected:
   void Probe(const QString& user) override { probes << user; }
@@ -46,13 +46,13 @@ class FakeFingerprint : public FingerprintUnlock {
 
 }  // namespace
 
-class FingerprintUnlockTest : public QObject {
+class FingerprintSessionTest : public QObject {
   Q_OBJECT
 
  private slots:
   void matchesAfterProbe() {
     FakeFingerprint fp;
-    QSignalSpy matched(&fp, &FingerprintUnlock::Matched);
+    QSignalSpy matched(&fp, &FingerprintSession::Matched);
     fp.Start(QStringLiteral("demo"));
     QCOMPARE(fp.GetState(), State::kProbing);
     QCOMPARE(fp.probes, QStringList{QStringLiteral("demo")});
@@ -87,7 +87,7 @@ class FingerprintUnlockTest : public QObject {
 
   void rejectionsAreReportedAndRunGoesOn() {
     FakeFingerprint fp;
-    QSignalSpy rejected(&fp, &FingerprintUnlock::Rejected);
+    QSignalSpy rejected(&fp, &FingerprintSession::Rejected);
     fp.Start(QStringLiteral("demo"));
     fp.ProbeFinished(QStringLiteral("demo"), true);
 
@@ -119,7 +119,7 @@ class FingerprintUnlockTest : public QObject {
 
   void restartsQuietlyAfterTimeout() {
     FakeFingerprint fp;
-    QSignalSpy rejected(&fp, &FingerprintUnlock::Rejected);
+    QSignalSpy rejected(&fp, &FingerprintSession::Rejected);
     fp.Start(QStringLiteral("demo"));
     fp.ProbeFinished(QStringLiteral("demo"), true);
     // No finger until pam_fprintd's timeout.
@@ -155,7 +155,7 @@ class FingerprintUnlockTest : public QObject {
 
   void stopEndsTheRunAndIgnoresLateResults() {
     FakeFingerprint fp;
-    QSignalSpy matched(&fp, &FingerprintUnlock::Matched);
+    QSignalSpy matched(&fp, &FingerprintSession::Matched);
     fp.Start(QStringLiteral("demo"));
     fp.ProbeFinished(QStringLiteral("demo"), true);
     fp.Stop();
@@ -183,5 +183,5 @@ class FingerprintUnlockTest : public QObject {
   }
 };
 
-QTEST_GUILESS_MAIN(FingerprintUnlockTest)
+QTEST_GUILESS_MAIN(FingerprintSessionTest)
 #include "fingerprint_unlock_test.moc"

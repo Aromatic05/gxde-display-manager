@@ -15,6 +15,7 @@ set(DAEMON_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/ThemeConfig.cpp
     ${CMAKE_SOURCE_DIR}/src/common/ThemeMetadata.cpp
     ${CMAKE_SOURCE_DIR}/src/common/Session.cpp
+    ${CMAKE_SOURCE_DIR}/src/common/FingerprintProbe.cpp
     ${CMAKE_SOURCE_DIR}/src/common/SocketWriter.cpp
     ${CMAKE_SOURCE_DIR}/src/common/XAuth.cpp
     ${CMAKE_SOURCE_DIR}/src/common/SignalHandler.cpp

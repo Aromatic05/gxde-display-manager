@@ -122,7 +122,42 @@ Item {
     connectSignal(greeterBackend.InformationMessage, root.handleInformationMessage)
     connectSignal(greeterBackend.LoginSucceeded, root.handleLoginSucceeded)
     connectSignal(greeterBackend.LastSessionChanged, root.restoreSession)
+    if (greeterBackend.FingerprintRejected) {
+      connectSignal(greeterBackend.FingerprintRejected, root.showPasswordError)
+      connectSignal(greeterBackend.FingerprintChanged,
+                    root.handleFingerprintChanged)
+    }
     restoreSession()
+    syncFingerprint()
+  }
+
+  // 指纹登录：登录框为列表中的用户打开时监听（手动输入用户名时不监听），
+  // 匹配后按当前所选会话登录，与密码走同一条路径。
+  readonly property string fingerprintTarget: passwordCard.shown
+      && !passwordCard.askUserName && passwordCard.user
+      && !passwordCard.busy && !root.transitioning && !root.loginSucceeded
+    ? passwordCard.user.username + "\n"
+      + (root.selectedSession ? root.selectedSession.id : "")
+    : ""
+  readonly property bool fingerprintListening: !!greeterBackend
+    && !!greeterBackend.fingerprintListening
+
+  onFingerprintTargetChanged: syncFingerprint()
+
+  function syncFingerprint() {
+    if (!greeterBackend || !greeterBackend.StartFingerprint) return
+    if (fingerprintTarget === "") {
+      greeterBackend.StopFingerprint()
+    } else {
+      greeterBackend.StartFingerprint(passwordCard.user.username,
+        root.selectedSession ? root.selectedSession.id : "")
+    }
+  }
+
+  function handleFingerprintChanged() {
+    if (greeterBackend.fingerprintGaveUp && passwordCard.shown) {
+      passwordCard.errorText = qsTr("指纹多次不匹配，请输入密码")
+    }
   }
 
   Component.onDestruction: {
@@ -686,11 +721,13 @@ Item {
 
     PasswordCard {
       id: passwordCard
+      objectName: "passwordCard"
       opacity: root.preserveBackground ? 1 - root.transitionProgress : 1
       enabled: !root.transitioning
 
       property int userIndex: -1
       property var user: null
+      fingerprintListening: root.fingerprintListening
 
       parent: scene
       x: Math.round((parent.width - width) / 2 + shakeOffset)

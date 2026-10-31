@@ -27,6 +27,8 @@
 
 namespace gxde::greeter {
 
+class DaemonFingerprint;
+
 class GreeterBackend : public QObject {
   Q_OBJECT
   Q_PROPERTY(QStringList availableActions READ AvailableActions NOTIFY
@@ -36,11 +38,18 @@ class GreeterBackend : public QObject {
   Q_PROPERTY(
       bool authenticating READ IsAuthenticating NOTIFY AuthenticatingChanged)
   Q_PROPERTY(QString lastSession READ LastSession NOTIFY LastSessionChanged)
+  // A finger on the reader logs the chosen user in (alongside the password).
+  Q_PROPERTY(bool fingerprintListening READ FingerprintListening NOTIFY
+                 FingerprintChanged)
+  // pam_fprintd's tries are used up; StartFingerprint() re-arms.
+  Q_PROPERTY(bool fingerprintGaveUp READ FingerprintGaveUp NOTIFY
+                 FingerprintChanged)
 
  public:
   explicit GreeterBackend(const QString& socket_name,
                           const QVariantList& sessions = {},
                           QObject* parent = nullptr);
+  ~GreeterBackend() override;
   void EnableTransitions();
   Q_INVOKABLE void FinishTransition();
   void TransitionReady();
@@ -53,6 +62,14 @@ class GreeterBackend : public QObject {
   QStringList AvailableActions() const;
   Q_INVOKABLE void Request(const QString& action);
 
+  bool FingerprintListening() const;
+  bool FingerprintGaveUp() const;
+  // Listens for `username`'s finger and logs into `session_id` on a match.
+  // Restarts for another user or session; otherwise a no-op while listening.
+  Q_INVOKABLE void StartFingerprint(const QString& username,
+                                    const QString& session_id);
+  Q_INVOKABLE void StopFingerprint();
+
  signals:
   void PrepareTransition(bool preserveBackground);
   void TransitionFinished(bool preserveBackground);
@@ -64,6 +81,9 @@ class GreeterBackend : public QObject {
   void InformationMessage(const QString& message);
   void AvailableActionsChanged();
   void RequestFailed(const QString& message);
+  void FingerprintChanged();
+  // One rejected scan, with pam_fprintd's (translated) message.
+  void FingerprintRejected(const QString& message);
 
  private:
   void SetAuthenticating(bool authenticating);
@@ -72,6 +92,13 @@ class GreeterBackend : public QObject {
   void SetCapabilities(quint32 capabilities);
   QString InitialSession(const QString& remembered) const;
   bool SendMessage(quint32 message);
+  // Serialized session for the Login family of messages; false if unknown.
+  bool WriteSession(QDataStream& output, const QString& session_id) const;
+  // Fingerprint messages: failures are not power requests, and a lost
+  // connection already reports itself.
+  bool SendRaw(const QByteArray& data);
+
+  friend class DaemonFingerprint;
 
   QLocalSocket socket_;
   QDataStream input_;
@@ -83,6 +110,8 @@ class GreeterBackend : public QObject {
   bool preserve_background_ = false;
   bool authenticating_ = false;
   bool login_succeeded_ = false;
+  DaemonFingerprint* fingerprint_ = nullptr;
+  QString fingerprint_session_;  // session_id for fingerprint runs
 };
 
 }

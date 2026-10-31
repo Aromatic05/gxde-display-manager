@@ -215,6 +215,10 @@ add_executable(gxdm-lock-classic
     "${GXDM_REPO_ROOT}/src/lock-common/lockstyle.h"
     "${GXDM_REPO_ROOT}/src/lock-common/lockstylemanager.cpp"
     "${GXDM_REPO_ROOT}/src/lock-common/lockstylemanager.h"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintProbe.cpp"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintProbe.h"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintSession.cpp"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintSession.h"
     lock/images.qrc
     lock/logintheme.qrc
     ${NEO_WIDGET_RESOURCES}

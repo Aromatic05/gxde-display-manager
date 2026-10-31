@@ -32,7 +32,12 @@ namespace SDDM {
         Hibernate,
         HybridSleep,
         EnableTransitions,
-        TransitionReady
+        TransitionReady,
+        // Fingerprint login (gxdm-fingerprint PAM service), next to the
+        // password. The daemon answers only greeters that use these.
+        FingerprintProbe,   // user -> FingerprintAvailable
+        FingerprintLogin,   // user, session: wait for a finger, then log in
+        FingerprintCancel,  // end a pending FingerprintLogin quietly
     };
 
     enum class DaemonMessages {
@@ -44,6 +49,11 @@ namespace SDDM {
         LastSession,
         FadeToBlack,
         PreserveBackground,
+        FingerprintAvailable,  // user, quint32 0/1: a reader and enrolled fingers
+        FingerprintRejected,   // message: one rejected scan; still listening
+        // The FingerprintLogin ended without a match (tries used up, timeout,
+        // refused). A match is answered with LoginSucceeded instead.
+        FingerprintFinished,
     };
 
     enum Capability {

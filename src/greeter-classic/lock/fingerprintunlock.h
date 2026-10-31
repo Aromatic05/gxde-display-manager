@@ -18,10 +18,9 @@
 #ifndef GXDM_LOCK_FINGERPRINTUNLOCK_H_
 #define GXDM_LOCK_FINGERPRINTUNLOCK_H_
 
-#include <QElapsedTimer>
-#include <QObject>
+#include "FingerprintSession.h"
+
 #include <QPointer>
-#include <QString>
 
 namespace SDDM {
 class Auth;
@@ -30,77 +29,22 @@ class Auth;
 namespace gxde {
 namespace lock {
 
-// Fingerprint authentication for the locked user, run alongside the password.
-//
-// Each run is gxdm-helper with the gxdm-fingerprint PAM service (pam_fprintd),
-// unprivileged and auth-only like the password unlock. fprintd's polkit
-// policy lets an active session verify its own user.
-//
-// pam_fprintd ends a run in three ways, told apart by timing:
-//  - a match;
-//  - its tries are used up: it fails right after the last mismatch. The run
-//    stops until Start() is called again, so a wrong finger cannot keep the
-//    reader busy;
-//  - no finger before its timeout (30 s by default): the run is restarted
-//    quietly, so the reader keeps listening while the screen stays locked.
-// A run that fails quickly without any scan means there is nothing to listen
-// with (no reader, no prints, no PAM service): the user is marked unavailable.
-class FingerprintUnlock : public QObject {
+// Fingerprint unlock for the locked user. Each run is gxdm-helper with the
+// gxdm-fingerprint PAM service, unprivileged and auth-only like the password
+// unlock; fprintd's polkit policy lets an active session verify its own user.
+class FingerprintUnlock : public FingerprintSession {
   Q_OBJECT
 
  public:
-  enum class State {
-    kIdle,         // not started, or stopped
-    kProbing,      // asking fprintd for a reader and enrolled fingers
-    kListening,    // a run is waiting for a finger
-    kGaveUp,       // pam_fprintd's tries are used up; Start() re-arms
-    kUnavailable,  // no reader or no enrolled fingers for this user
-  };
-  Q_ENUM(State)
-
   explicit FingerprintUnlock(QObject* parent = nullptr);
   ~FingerprintUnlock() override;
 
-  State GetState() const { return state_; }
-  bool Listening() const { return state_ == State::kListening; }
-
-  // Probes fprintd, then listens. Does nothing while already probing or
-  // listening for the same user.
-  void Start(const QString& user);
-  void Stop();
-
-  // Below this, a failed run is "quick" (see the class comment). pam_fprintd
-  // accepts no timeout under 10 s.
-  void SetQuickFailureMs(qint64 ms) { quick_failure_ms_ = ms; }
-
- signals:
-  void StateChanged();
-  void Matched();
-  // One rejected scan, with pam_fprintd's (translated) message. The run goes
-  // on unless its tries are used up.
-  void Rejected(const QString& message);
-
  protected:
-  // Seams for tests. The defaults talk to fprintd and gxdm-helper.
-  // Probe() must answer with ProbeFinished(); StartRun() with RunRejected()
-  // and RunFinished().
-  virtual void Probe(const QString& user);
-  virtual void StartRun(const QString& user);
-  virtual void StopRun();
-
-  void ProbeFinished(const QString& user, bool available);
-  void RunRejected(const QString& message);
-  void RunFinished(bool matched);
+  void Probe(const QString& user) override;
+  void StartRun(const QString& user) override;
+  void StopRun() override;
 
  private:
-  void BeginRun();
-  void SetState(State state);
-
-  State state_ = State::kIdle;
-  QString user_;
-  qint64 quick_failure_ms_ = 6000;
-  QElapsedTimer since_event_;  // since the run started or the last rejection
-  int rejections_ = 0;
   QPointer<SDDM::Auth> auth_;
 };
 

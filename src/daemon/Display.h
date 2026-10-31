@@ -77,6 +77,13 @@ namespace SDDM {
         bool attemptAutologin();
         void displayServerStarted();
 
+        // Fingerprint login: the gxdm-fingerprint PAM service on the login
+        // Auth, so a match opens the session exactly like a password.
+        void fingerprintProbe(QLocalSocket *socket, const QString &user);
+        void fingerprintLogin(QLocalSocket *socket, const QString &user,
+                              const Session &session);
+        void fingerprintCancel(QLocalSocket *socket);
+
     signals:
         void stopped();
         void displayServerFailed();
@@ -105,6 +112,7 @@ namespace SDDM {
         void completeTransition();
         void resolveLogindSession(qint64 helperPid);
         void removeDisplayManagerSession();
+        void cancelFingerprintLogin();
 
         DisplayServerType m_displayServerType = X11DisplayServerType;
 
@@ -117,6 +125,9 @@ namespace SDDM {
         bool m_reuseLookupPending { false };
         bool m_reuseActivationPending { false };
         bool m_reuseHelperFinished { false };
+        bool m_fingerprintLogin { false };       // m_auth runs gxdm-fingerprint
+        bool m_cancellingFingerprint { false };  // inside cancelFingerprintLogin()
+        bool m_authenticated { false };          // PAM accepted the current request
         quint64 m_reuseLookupGeneration { 0 };
         quint64 m_reuseActivationGeneration { 0 };
 

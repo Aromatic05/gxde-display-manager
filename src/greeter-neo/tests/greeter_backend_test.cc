@@ -32,6 +32,7 @@
 #include <QtGlobal>
 
 #include "common/Messages.h"
+#include "common/Session.h"
 
 namespace gxde::greeter {
 namespace {
@@ -44,6 +45,7 @@ class GreeterBackendTest : public QObject {
   void Transition();
   void Authentication();
   void AuthenticationDisconnect();
+  void FingerprintLogin();
   void RestoresLastSession_data();
   void RestoresLastSession();
   void Standalone() {
@@ -271,6 +273,149 @@ void GreeterBackendTest::Authentication() {
   peer->disconnectFromServer();
   QTRY_VERIFY(!backend.IsConnected());
   QCOMPARE(failed.size(), 2);
+}
+
+namespace {
+
+// Reads one greeter message from the fake daemon's side.
+struct GreeterMessage {
+  quint32 opcode = 0;
+  QString user;
+  quint32 session_type = 0;
+  QString file;
+};
+
+GreeterMessage ReadGreeterMessage(QLocalSocket* peer) {
+  GreeterMessage message;
+  QDataStream input(peer);
+  input >> message.opcode;
+  switch (static_cast<SDDM::GreeterMessages>(message.opcode)) {
+    case SDDM::GreeterMessages::FingerprintProbe:
+      input >> message.user;
+      break;
+    case SDDM::GreeterMessages::FingerprintLogin:
+      input >> message.user >> message.session_type >> message.file;
+      break;
+    case SDDM::GreeterMessages::Login: {
+      QString password;
+      input >> message.user >> password >> message.session_type >>
+          message.file;
+      break;
+    }
+    default:
+      break;
+  }
+  return message;
+}
+
+void Reply(QLocalSocket* peer, const QByteArray& data) {
+  peer->write(data);
+  peer->flush();
+}
+
+}  // namespace
+
+void GreeterBackendTest::FingerprintLogin() {
+  QLocalServer server;
+  QVERIFY(server.listen("gxde-finger-test-" + QUuid::createUuid().toString()));
+  const QVariantList sessions = {QVariantMap{{"id", "x11/test.desktop"},
+                                             {"type", "x11"},
+                                             {"file", "test.desktop"}}};
+  GreeterBackend backend(server.fullServerName(), sessions);
+  QSignalSpy rejected(&backend, &GreeterBackend::FingerprintRejected);
+  QSignalSpy succeeded(&backend, &GreeterBackend::LoginSucceeded);
+  QSignalSpy prepare(&backend, &GreeterBackend::PrepareTransition);
+  QSignalSpy failures(&backend, &GreeterBackend::RequestFailed);
+  QTRY_VERIFY(server.hasPendingConnections());
+  auto* peer = server.nextPendingConnection();
+  QTRY_COMPARE(peer->bytesAvailable(), 4);
+  peer->readAll();  // Connect
+  backend.EnableTransitions();
+  QTRY_COMPARE(peer->bytesAvailable(), 4);
+  peer->readAll();  // EnableTransitions
+
+  auto expect = [&](SDDM::GreeterMessages opcode) {
+    // Keep the event loop running: the backend lives in this thread.
+    for (int waited = 0; peer->bytesAvailable() == 0 && waited < 2000;
+         waited += 10) {
+      QTest::qWait(10);
+    }
+    if (peer->bytesAvailable() == 0) return GreeterMessage{};
+    GreeterMessage message = ReadGreeterMessage(peer);
+    if (message.opcode != static_cast<quint32>(opcode)) {
+      qWarning() << "expected" << static_cast<quint32>(opcode) << "got"
+                 << message.opcode;
+    }
+    return message;
+  };
+  auto available = [&](const QString& user, bool yes) {
+    QByteArray data;
+    QDataStream out(&data, QIODevice::WriteOnly);
+    out << static_cast<quint32>(SDDM::DaemonMessages::FingerprintAvailable)
+        << user << static_cast<quint32>(yes ? 1 : 0);
+    Reply(peer, data);
+  };
+  auto send = [&](SDDM::DaemonMessages opcode, const QString& text = {}) {
+    QByteArray data;
+    QDataStream out(&data, QIODevice::WriteOnly);
+    out << static_cast<quint32>(opcode);
+    if (opcode == SDDM::DaemonMessages::FingerprintRejected) out << text;
+    Reply(peer, data);
+  };
+
+  // No reader: probed, nothing started.
+  backend.StartFingerprint("user", "x11/test.desktop");
+  QCOMPARE(expect(SDDM::GreeterMessages::FingerprintProbe).user,
+           QString("user"));
+  available("user", false);
+  QTRY_VERIFY(!backend.FingerprintListening());
+  QTest::qWait(50);
+  QCOMPARE(peer->bytesAvailable(), 0);
+
+  // Probe, run, rejection, then pam_fprintd gives up right away.
+  backend.StartFingerprint("user", "x11/test.desktop");
+  expect(SDDM::GreeterMessages::FingerprintProbe);
+  available("user", true);
+  GreeterMessage run = expect(SDDM::GreeterMessages::FingerprintLogin);
+  QCOMPARE(run.user, QString("user"));
+  QCOMPARE(run.session_type, static_cast<quint32>(SDDM::Session::X11Session));
+  QCOMPARE(run.file, QString("test.desktop"));
+  QVERIFY(backend.FingerprintListening());
+  send(SDDM::DaemonMessages::FingerprintRejected, "指纹匹配失败");
+  QTRY_COMPARE(rejected.size(), 1);
+  QCOMPARE(rejected.at(0).at(0).toString(), QString("指纹匹配失败"));
+  QVERIFY(backend.FingerprintListening());
+  send(SDDM::DaemonMessages::FingerprintFinished);
+  QTRY_VERIFY(backend.FingerprintGaveUp());
+  QTest::qWait(50);
+  QCOMPARE(peer->bytesAvailable(), 0);  // no cancel for a finished run
+
+  // A typed password cancels the run before logging in.
+  backend.StartFingerprint("user", "x11/test.desktop");
+  expect(SDDM::GreeterMessages::FingerprintProbe);
+  available("user", true);
+  expect(SDDM::GreeterMessages::FingerprintLogin);
+  backend.Login("user", "secret", "x11/test.desktop");
+  expect(SDDM::GreeterMessages::FingerprintCancel);
+  QCOMPARE(expect(SDDM::GreeterMessages::Login).user, QString("user"));
+  QVERIFY(!backend.FingerprintListening());
+  send(SDDM::DaemonMessages::LoginFailed);
+  QTRY_VERIFY(!backend.IsAuthenticating());
+
+  // A match: the daemon fades the greeter and starts the session.
+  backend.StartFingerprint("user", "x11/test.desktop");
+  expect(SDDM::GreeterMessages::FingerprintProbe);
+  available("user", true);
+  expect(SDDM::GreeterMessages::FingerprintLogin);
+  send(SDDM::DaemonMessages::FadeToBlack);
+  QTRY_COMPARE(prepare.size(), 1);
+  backend.StopFingerprint();  // QML stops the reader once transitioning
+  send(SDDM::DaemonMessages::LoginSucceeded);
+  QTRY_COMPARE(succeeded.size(), 1);
+  QVERIFY(!backend.FingerprintListening());
+  QTest::qWait(50);
+  QCOMPARE(peer->bytesAvailable(), 0);  // nothing to cancel after a match
+  QCOMPARE(failures.size(), 0);
 }
 
 void GreeterBackendTest::RestoresLastSession_data() {

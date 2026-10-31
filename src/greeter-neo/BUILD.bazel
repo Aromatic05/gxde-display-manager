@@ -24,6 +24,7 @@ qt_cc_library(
     ],
     deps = [
         "//src/common",
+        "//src/common:fingerprint_session",
         "//src/common:greeter_appearance",
     ],
 )

@@ -54,6 +54,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 
+#include "FingerprintProbe.h"
 #include "Login1Manager.h"
 #include "VirtualTerminal.h"
 #include "WaylandDisplayServer.h"
@@ -323,6 +324,9 @@ namespace SDDM {
 
         // connect login signal
         connect(m_socketServer, &SocketServer::login, this, &Display::login);
+        connect(m_socketServer, &SocketServer::fingerprintProbe, this, &Display::fingerprintProbe);
+        connect(m_socketServer, &SocketServer::fingerprintLogin, this, &Display::fingerprintLogin);
+        connect(m_socketServer, &SocketServer::fingerprintCancel, this, &Display::fingerprintCancel);
 
         m_transitionTimer = new QTimer(this);
         m_transitionTimer->setSingleShot(true);
@@ -565,6 +569,10 @@ namespace SDDM {
     void Display::login(QLocalSocket *socket,
                         const QString &user, const QString &password,
                         const Session &session) {
+        // A password typed while the reader listens takes over.
+        if (m_fingerprintLogin && !m_authenticated)
+            cancelFingerprintLogin();
+
         if (m_auth->isActive() || m_reuseLookupPending || m_socket) {
             qWarning() << "Rejecting concurrent login request for user" << user;
             emit loginFailed(socket);
@@ -572,6 +580,7 @@ namespace SDDM {
         }
 
         m_socket = socket;
+        m_auth->setFingerprint(false);
 
         //the gxdm user has special privileges that skip password checking so that we can load the greeter
         //block ever trying to log in as the gxdm user
@@ -586,6 +595,56 @@ namespace SDDM {
             emit loginFailed(m_socket);
             m_socket = nullptr;
         }
+    }
+
+    void Display::fingerprintProbe(QLocalSocket *socket, const QString &user) {
+        QPointer<QLocalSocket> target(socket);
+        gxde::ProbeEnrolledFingers(user, this, [this, target, user](bool available) {
+            if (target)
+                m_socketServer->fingerprintAvailable(target, user, available);
+        });
+    }
+
+    void Display::fingerprintLogin(QLocalSocket *socket, const QString &user,
+                                   const Session &session) {
+        if (m_auth->isActive() || m_reuseLookupPending || m_socket
+                || user.isEmpty() || user == QLatin1String("gxdm")) {
+            qWarning() << "Refusing fingerprint login for user" << user;
+            m_socketServer->fingerprintFinished(socket);
+            return;
+        }
+
+        m_socket = socket;
+        m_fingerprintLogin = true;
+        m_auth->setFingerprint(true);
+        if (!startAuth(user, QString(), session)) {
+            qWarning() << "Unable to start fingerprint login for user" << user;
+            m_fingerprintLogin = false;
+            m_auth->setFingerprint(false);
+            m_socket = nullptr;
+            m_socketServer->fingerprintFinished(socket);
+        }
+    }
+
+    void Display::fingerprintCancel(QLocalSocket *socket) {
+        // Too late once PAM accepted the finger: the session is starting.
+        if (m_fingerprintLogin && socket == m_socket && !m_authenticated)
+            cancelFingerprintLogin();
+    }
+
+    void Display::cancelFingerprintLogin() {
+        qDebug() << "Cancelling fingerprint login for user" << m_auth->user();
+        // A pending session reuse lookup would start the helper later.
+        m_reuseLookupPending = false;
+        ++m_reuseLookupGeneration;
+        // stop() waits for the helper, whose exit reaches slotHelperFinished()
+        // while this flag is set.
+        m_cancellingFingerprint = true;
+        m_auth->stop();
+        m_cancellingFingerprint = false;
+        m_fingerprintLogin = false;
+        m_auth->setFingerprint(false);
+        m_socket = nullptr;
     }
 
     QString Display::findGreeterTheme() const {
@@ -615,6 +674,7 @@ namespace SDDM {
         }
 
         m_passPhrase = password;
+        m_authenticated = false;
 
         // sanity check
         if (!session.isValid()) {
@@ -806,6 +866,8 @@ namespace SDDM {
     }
 
     void Display::slotAuthenticationFinished(const QString &user, bool success) {
+        m_authenticated = success;
+
         if (m_auth->autologin() && !success) {
             handleAutologinFailure();
             return;
@@ -952,16 +1014,25 @@ namespace SDDM {
             if (m_socket)
                 emit loginSucceeded(m_socket);
         } else if (m_socket) {
-            emit loginFailed(m_socket);
+            // No match (tries used up, timeout): the greeter keeps the
+            // password and decides whether to listen again. A matched finger
+            // whose session failed to start is an ordinary failed login.
+            if (m_fingerprintLogin && !m_authenticated)
+                m_socketServer->fingerprintFinished(m_socket);
+            else
+                emit loginFailed(m_socket);
         }
 
         m_socket = nullptr;
+        m_fingerprintLogin = false;
+        m_auth->setFingerprint(false);
     }
 
     void Display::slotAuthInfo(const QString &message, Auth::Info info) {
         qWarning() << "Authentication information:" << info << message;
 
-        if (!m_socket)
+        // "Place your finger on <device>": the greeter shows its own hint.
+        if (!m_socket || m_fingerprintLogin)
             return;
 
         m_socketServer->informationMessage(m_socket, message);
@@ -973,11 +1044,23 @@ namespace SDDM {
         if (!m_socket)
             return;
 
+        if (m_fingerprintLogin) {
+            // Conversation errors: mismatches and bad scans.
+            if (error == Auth::ERROR_AUTHENTICATION)
+                m_socketServer->fingerprintRejected(m_socket, message);
+            return;
+        }
+
         m_socketServer->informationMessage(m_socket, message);
     }
 
     void Display::slotHelperFinished(Auth::HelperExitStatus status) {
         removeDisplayManagerSession();
+
+        // A cancelled fingerprint login was terminated on purpose: neither a
+        // result for the greeter nor a reason to restart the display.
+        if (m_cancellingFingerprint)
+            return;
 
         if (m_reuseActivationPending) {
             m_reuseHelperFinished = true;
@@ -1002,6 +1085,23 @@ namespace SDDM {
     }
 
     void Display::slotRequestChanged() {
+        if (m_fingerprintLogin) {
+            if (m_auth->request()->prompts().isEmpty())
+                return;
+            // gxdm-fingerprint asks nothing. Never answer a prompt with the
+            // (empty) password: a misconfigured stack could accept it.
+            qWarning() << "gxdm-fingerprint asked for input; check /etc/pam.d/gxdm-fingerprint";
+            // Not from inside Auth's own signal.
+            QTimer::singleShot(0, this, [this] {
+                if (!m_fingerprintLogin || m_authenticated)
+                    return;
+                QPointer<QLocalSocket> socket = m_socket;
+                cancelFingerprintLogin();
+                if (socket)
+                    m_socketServer->fingerprintFinished(socket);
+            });
+            return;
+        }
         if (m_auth->request()->prompts().length() == 1) {
             m_auth->request()->prompts()[0]->setResponse(qPrintable(m_passPhrase));
             m_auth->request()->done();

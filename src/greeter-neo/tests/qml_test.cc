@@ -25,6 +25,13 @@ class TransitionBackend : public QObject {
   Q_PROPERTY(QString lastSession READ lastSession CONSTANT)
   Q_PROPERTY(bool authenticating READ authenticating CONSTANT)
   Q_PROPERTY(int completed MEMBER completed NOTIFY CompletedChanged)
+  Q_PROPERTY(bool fingerprintListening MEMBER fingerprintListening NOTIFY
+                 FingerprintChanged)
+  Q_PROPERTY(bool fingerprintGaveUp MEMBER fingerprintGaveUp NOTIFY
+                 FingerprintChanged)
+  // "user|session" per StartFingerprint(), "stop" per StopFingerprint().
+  Q_PROPERTY(QStringList fingerprintCalls MEMBER fingerprintCalls NOTIFY
+                 FingerprintCallsChanged)
 
  public:
   using QObject::QObject;
@@ -33,6 +40,19 @@ class TransitionBackend : public QObject {
   QString lastSession() const { return {}; }
   bool authenticating() const { return true; }
   int completed = 0;
+  bool fingerprintListening = false;
+  bool fingerprintGaveUp = false;
+  QStringList fingerprintCalls;
+
+  Q_INVOKABLE void StartFingerprint(const QString& user,
+                                    const QString& session) {
+    fingerprintCalls << user + "|" + session;
+    emit FingerprintCallsChanged();
+  }
+  Q_INVOKABLE void StopFingerprint() {
+    fingerprintCalls << "stop";
+    emit FingerprintCallsChanged();
+  }
 
   Q_INVOKABLE void FinishTransition() {
     ++completed;
@@ -47,6 +67,9 @@ class TransitionBackend : public QObject {
   void LoginSucceeded();
   void LastSessionChanged();
   void CompletedChanged();
+  void FingerprintChanged();
+  void FingerprintRejected(QString message);
+  void FingerprintCallsChanged();
 };
 
 class TransitionScreenManager : public QObject {

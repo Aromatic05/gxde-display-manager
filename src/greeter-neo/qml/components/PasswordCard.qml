@@ -25,6 +25,8 @@ Popup {
   property url userAvatar
   property string errorText: ""
   property bool busy: false
+  // 指纹也能登录时提示用户。
+  property bool fingerprintListening: false
   property url submitIconSource: "qrc:/icons/next-indicator.svg"
 
   readonly property color highlightColor: light ? "#0081ff" : "#024cca"
@@ -195,7 +197,8 @@ Popup {
       rightPadding: submitButton.width + 8
       echoMode: TextInput.Password
       passwordCharacter: "\u2022"
-      placeholderText: qsTr("密码")
+      placeholderText: card.fingerprintListening ? qsTr("密码或指纹")
+                                                 : qsTr("密码")
       inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
       showError: card.errorText.length > 0
       onAccepted: card.submit()

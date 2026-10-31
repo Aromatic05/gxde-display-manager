@@ -152,6 +152,23 @@ namespace SDDM {
                     emit login(socket, user, password, session);
                 }
                 break;
+                case GreeterMessages::FingerprintProbe: {
+                    QString user;
+                    input >> user;
+                    emit fingerprintProbe(socket, user);
+                }
+                break;
+                case GreeterMessages::FingerprintLogin: {
+                    qDebug() << "Message received from greeter: FingerprintLogin";
+                    QString user;
+                    Session session;
+                    input >> user >> session;
+                    emit fingerprintLogin(socket, user, session);
+                }
+                break;
+                case GreeterMessages::FingerprintCancel:
+                    emit fingerprintCancel(socket);
+                    break;
                 case GreeterMessages::EnableTransitions:
                     socket->setProperty("transitions", true);
                     break;
@@ -229,5 +246,17 @@ namespace SDDM {
 
     void SocketServer::informationMessage(QLocalSocket *socket, const QString &message) {
         SocketWriter(socket) << quint32(DaemonMessages::InformationMessage) << message;
+    }
+
+    void SocketServer::fingerprintAvailable(QLocalSocket *socket, const QString &user, bool available) {
+        SocketWriter(socket) << quint32(DaemonMessages::FingerprintAvailable) << user << quint32(available ? 1 : 0);
+    }
+
+    void SocketServer::fingerprintRejected(QLocalSocket *socket, const QString &message) {
+        SocketWriter(socket) << quint32(DaemonMessages::FingerprintRejected) << message;
+    }
+
+    void SocketServer::fingerprintFinished(QLocalSocket *socket) {
+        SocketWriter(socket) << quint32(DaemonMessages::FingerprintFinished);
     }
 }

@@ -77,3 +77,20 @@ qt_cc_library(
         "-lXrandr",
     ],
 )
+
+# Fingerprint login next to the password: the state machine shared by the lock
+# screen and the greeter, and the fprintd probe shared by the lock and daemon.
+qt_cc_library(
+    name = "fingerprint_session",
+    srcs = ["FingerprintSession.cpp"],
+    hdrs = ["FingerprintSession.h"],
+    includes = ["."],
+    moc_hdrs = ["FingerprintSession.h"],
+)
+
+qt_cc_library(
+    name = "fingerprint_probe",
+    srcs = ["FingerprintProbe.cpp"],
+    hdrs = ["FingerprintProbe.h"],
+    includes = ["."],
+)

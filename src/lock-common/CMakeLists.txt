@@ -31,6 +31,8 @@ set(GXDM_LOCK_BACKEND_SOURCES
     "${GXDM_CLASSIC_DIR}/lock/freedesktopscreensaver.cpp"
     "${GXDM_CLASSIC_DIR}/lock/waylandsessionlock.cpp"
     "${GXDM_REPO_ROOT}/src/common/GreeterAppearance.cpp"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintProbe.cpp"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintSession.cpp"
     ${GXDM_LOCK_VENDOR_SOURCES}
     ${GXDM_AUTH_FILES}
     ${EXT_SESSION_LOCK_CLIENT_HEADER}
@@ -49,6 +51,8 @@ set(GXDM_LOCK_BACKEND_HEADERS
     "${GXDM_CLASSIC_DIR}/lock/freedesktopscreensaver.h"
     "${GXDM_CLASSIC_DIR}/lock/waylandsessionlock.h"
     "${GXDM_REPO_ROOT}/src/common/GreeterAppearance.h"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintProbe.h"
+    "${GXDM_REPO_ROOT}/src/common/FingerprintSession.h"
     ${GXDM_LOCK_VENDOR_HEADERS}
 )
 

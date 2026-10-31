@@ -59,6 +59,8 @@ qt_add_executable(gxde-greeter
   ../common/GreeterScale.h
   ../common/SystemDefaults.cpp
   ../common/SystemDefaults.h
+  ../common/FingerprintSession.cpp
+  ../common/FingerprintSession.h
 )
 
 set_source_files_properties(qml/MainWindow.qml PROPERTIES
@@ -127,6 +129,8 @@ if(GREETER_BUILD_TESTS)
     src/greeter_backend.h
     ../common/SystemDefaults.cpp
     ../common/SystemDefaults.h
+    ../common/FingerprintSession.cpp
+    ../common/FingerprintSession.h
   )
   target_include_directories(greeter-backend-test PRIVATE ..)
   target_link_libraries(greeter-backend-test PRIVATE Qt6::Network Qt6::Test)

@@ -49,6 +49,9 @@ namespace SDDM {
         void informationMessage(QLocalSocket *socket, const QString &message);
         void loginFailed(QLocalSocket *socket);
         void loginSucceeded(QLocalSocket *socket);
+        void fingerprintAvailable(QLocalSocket *socket, const QString &user, bool available);
+        void fingerprintRejected(QLocalSocket *socket, const QString &message);
+        void fingerprintFinished(QLocalSocket *socket);
         bool prepareTransition(QLocalSocket *socket, bool preserveBackground);
 
     signals:
@@ -57,6 +60,10 @@ namespace SDDM {
                    const Session &session);
         void connected();
         void transitionReady(QLocalSocket *socket);
+        void fingerprintProbe(QLocalSocket *socket, const QString &user);
+        void fingerprintLogin(QLocalSocket *socket, const QString &user,
+                              const Session &session);
+        void fingerprintCancel(QLocalSocket *socket);
 
     private:
         QLocalServer *m_server { nullptr };

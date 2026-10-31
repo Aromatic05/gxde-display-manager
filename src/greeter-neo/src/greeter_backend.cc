@@ -27,11 +27,74 @@
 #include <QVariantMap>
 #include <QtGlobal>
 
+#include "common/FingerprintSession.h"
 #include "common/Messages.h"
 #include "common/Session.h"
 #include "common/SystemDefaults.h"
 
 namespace gxde::greeter {
+
+// Fingerprint runs through the daemon: the probe is FingerprintProbe and a
+// run is a FingerprintLogin, whose match starts the session (LoginSucceeded).
+class DaemonFingerprint : public FingerprintSession {
+ public:
+  explicit DaemonFingerprint(GreeterBackend* backend)
+      : FingerprintSession(backend), backend_(backend) {}
+
+  void Available(const QString& user, bool available) {
+    ProbeFinished(user, available);
+  }
+  void Rejected(const QString& message) { RunRejected(message); }
+  void Finished() {
+    run_active_ = false;
+    RunFinished(false);
+  }
+  // The daemon is starting the session: nothing to cancel any more.
+  void Succeeded() {
+    run_active_ = false;
+    RunFinished(true);
+  }
+
+ protected:
+  void Probe(const QString& user) override {
+    QByteArray data;
+    QDataStream output(&data, QIODevice::WriteOnly);
+    output << static_cast<quint32>(SDDM::GreeterMessages::FingerprintProbe)
+           << user;
+    if (!backend_->SendRaw(data)) {
+      // Not connected: nothing to listen with.
+      QMetaObject::invokeMethod(
+          this, [this, user] { ProbeFinished(user, false); },
+          Qt::QueuedConnection);
+    }
+  }
+  void StartRun(const QString& user) override {
+    QByteArray data;
+    QDataStream output(&data, QIODevice::WriteOnly);
+    output << static_cast<quint32>(SDDM::GreeterMessages::FingerprintLogin)
+           << user;
+    if (!backend_->WriteSession(output, backend_->fingerprint_session_) ||
+        !backend_->SendRaw(data)) {
+      QMetaObject::invokeMethod(
+          this, [this] { RunUnusable(); }, Qt::QueuedConnection);
+      return;
+    }
+    run_active_ = true;
+  }
+  void StopRun() override {
+    if (!run_active_) return;
+    run_active_ = false;
+    QByteArray data;
+    QDataStream output(&data, QIODevice::WriteOnly);
+    output << static_cast<quint32>(SDDM::GreeterMessages::FingerprintCancel);
+    backend_->SendRaw(data);
+  }
+
+ private:
+  GreeterBackend* backend_;
+  bool run_active_ = false;
+};
+
 namespace {
 
 struct PowerAction {
@@ -49,7 +112,14 @@ constexpr PowerAction kActions[] = {
 
 GreeterBackend::GreeterBackend(const QString& socket_name,
                                const QVariantList& sessions, QObject* parent)
-    : QObject(parent), input_(&socket_), sessions_(sessions) {
+    : QObject(parent),
+      input_(&socket_),
+      sessions_(sessions),
+      fingerprint_(new DaemonFingerprint(this)) {
+  connect(fingerprint_, &FingerprintSession::StateChanged, this,
+          &GreeterBackend::FingerprintChanged);
+  connect(fingerprint_, &FingerprintSession::Rejected, this,
+          &GreeterBackend::FingerprintRejected);
   connect(&socket_, &QLocalSocket::connected, this, [this] {
     emit ConnectedChanged();
     SendMessage(static_cast<quint32>(SDDM::GreeterMessages::Connect));
@@ -69,6 +139,57 @@ GreeterBackend::GreeterBackend(const QString& socket_name,
   if (!socket_name.isEmpty()) {
     socket_.connectToServer(socket_name);
   }
+}
+
+GreeterBackend::~GreeterBackend() = default;
+
+bool GreeterBackend::FingerprintListening() const {
+  return fingerprint_->Listening();
+}
+
+bool GreeterBackend::FingerprintGaveUp() const {
+  return fingerprint_->GetState() == FingerprintSession::State::kGaveUp;
+}
+
+void GreeterBackend::StartFingerprint(const QString& username,
+                                      const QString& session_id) {
+  if (authenticating_ || login_succeeded_ || username.trimmed().isEmpty()) {
+    return;
+  }
+  // Another session means another FingerprintLogin.
+  if (session_id != fingerprint_session_) fingerprint_->Stop();
+  fingerprint_session_ = session_id;
+  fingerprint_->Start(username);
+}
+
+void GreeterBackend::StopFingerprint() { fingerprint_->Stop(); }
+
+bool GreeterBackend::WriteSession(QDataStream& output,
+                                  const QString& session_id) const {
+  QVariantMap session;
+  for (const auto& candidate : sessions_) {
+    if (candidate.toMap().value("id").toString() == session_id) {
+      session = candidate.toMap();
+      break;
+    }
+  }
+  const QString type = session.value("type").toString();
+  const QString file = session.value("file").toString();
+  if ((type != "x11" && type != "wayland") || file.isEmpty()) return false;
+  output << static_cast<quint32>(type == "wayland"
+                                     ? SDDM::Session::WaylandSession
+                                     : SDDM::Session::X11Session)
+         << file;
+  return true;
+}
+
+bool GreeterBackend::SendRaw(const QByteArray& data) {
+  if (socket_.state() != QLocalSocket::ConnectedState ||
+      socket_.write(data) != data.size()) {
+    return false;
+  }
+  socket_.flush();
+  return true;
 }
 
 void GreeterBackend::EnableTransitions() {
@@ -145,6 +266,7 @@ void GreeterBackend::SetAuthenticating(bool authenticating) {
 
 void GreeterBackend::HandleDisconnect() {
   transition_pending_ = false;
+  fingerprint_->Stop();
   SetCapabilities(0);
   emit ConnectedChanged();
   if (authenticating_ && !login_succeeded_) {
@@ -164,27 +286,18 @@ void GreeterBackend::Login(const QString& username, const QString& password,
     emit LoginFailed(tr("请输入用户名。"));
     return;
   }
-  QVariantMap session;
-  for (const auto& candidate : sessions_) {
-    if (candidate.toMap().value("id").toString() == session_id) {
-      session = candidate.toMap();
-      break;
-    }
-  }
-  const QString type = session.value("type").toString();
-  const QString file = session.value("file").toString();
-  if ((type != "x11" && type != "wayland") || file.isEmpty()) {
-    emit LoginFailed(tr("请选择可用的桌面会话。"));
-    return;
-  }
   QByteArray data;
   QDataStream output(&data, QIODevice::WriteOnly);
   output << static_cast<quint32>(SDDM::GreeterMessages::Login) << username
-         << password
-         << static_cast<quint32>(type == "wayland"
-                                     ? SDDM::Session::WaylandSession
-                                     : SDDM::Session::X11Session)
-         << file;
+         << password;
+  if (!WriteSession(output, session_id)) {
+    data.fill('\0');
+    emit LoginFailed(tr("请选择可用的桌面会话。"));
+    return;
+  }
+  // The password takes over from the reader (the daemon would cancel it
+  // anyway).
+  fingerprint_->Stop();
   SetAuthenticating(true);
   if (socket_.write(data) != data.size()) {
     SetAuthenticating(false);
@@ -245,6 +358,7 @@ void GreeterBackend::ReadMessages() {
     input_.startTransaction();
     quint32 message = 0;
     quint32 capabilities = 0;
+    quint32 flag = 0;
     QString text;
     input_ >> message;
     if (input_.status() != QDataStream::Ok) {
@@ -260,10 +374,17 @@ void GreeterBackend::ReadMessages() {
       case SDDM::DaemonMessages::LastSession:
         input_ >> text;
         break;
+      case SDDM::DaemonMessages::FingerprintAvailable:
+        input_ >> text >> flag;
+        break;
+      case SDDM::DaemonMessages::FingerprintRejected:
+        input_ >> text;
+        break;
       case SDDM::DaemonMessages::FadeToBlack:
       case SDDM::DaemonMessages::PreserveBackground:
       case SDDM::DaemonMessages::LoginSucceeded:
       case SDDM::DaemonMessages::LoginFailed:
+      case SDDM::DaemonMessages::FingerprintFinished:
         break;
       default:
         input_.abortTransaction();
@@ -278,12 +399,16 @@ void GreeterBackend::ReadMessages() {
     const auto opcode = static_cast<SDDM::DaemonMessages>(message);
     if (opcode == SDDM::DaemonMessages::FadeToBlack ||
         opcode == SDDM::DaemonMessages::PreserveBackground) {
-      if (!authenticating_ || !transitions_enabled_) {
+      // A matched finger starts the session like a password does.
+      if ((!authenticating_ && !fingerprint_->Listening()) ||
+          !transitions_enabled_) {
         continue;
       }
 
       transition_pending_ = true;
       preserve_background_ = opcode == SDDM::DaemonMessages::PreserveBackground;
+      // The finger matched; the session is starting, nothing to cancel.
+      if (!authenticating_) fingerprint_->Succeeded();
       emit PrepareTransition(preserve_background_);
     } else if (static_cast<SDDM::DaemonMessages>(message) ==
         SDDM::DaemonMessages::Capabilities) {
@@ -302,10 +427,17 @@ void GreeterBackend::ReadMessages() {
       transition_pending_ = false;
       login_succeeded_ = true;
       SetAuthenticating(false);
+      fingerprint_->Succeeded();
       emit LoginSucceeded();
     } else if (static_cast<SDDM::DaemonMessages>(message) ==
                SDDM::DaemonMessages::InformationMessage) {
       emit InformationMessage(text);
+    } else if (opcode == SDDM::DaemonMessages::FingerprintAvailable) {
+      fingerprint_->Available(text, flag != 0);
+    } else if (opcode == SDDM::DaemonMessages::FingerprintRejected) {
+      fingerprint_->Rejected(text);
+    } else if (opcode == SDDM::DaemonMessages::FingerprintFinished) {
+      fingerprint_->Finished();
     }
   }
 }
