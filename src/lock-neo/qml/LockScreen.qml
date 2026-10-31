@@ -53,8 +53,16 @@ Item {
   readonly property real cardProgress: stageEase(0.05, 1.0)
   readonly property real controlsProgress: stageEase(0.1, 1.0)
 
+  // Listening starts with the lock (LockWorker). After pam_fprintd used up its
+  // tries, the next deliberate stage change re-arms it.
+  function rearmFingerprint() {
+    if (screen.backend && screen.backend.StartFingerprint)
+      screen.backend.StartFingerprint()
+  }
+
   function enterPasswordStage() {
     if (!screen.primaryScreen || screen.unlocking) return
+    if (!screen.passwordStage) screen.rearmFingerprint()
     screen.passwordStage = true
     screen.forceActiveFocus()
     loginCard.focusPassword()
@@ -71,6 +79,7 @@ Item {
     vkbLoader.active = false
     loginCard.clearPassword()
     screen.forceActiveFocus()
+    screen.rearmFingerprint()
   }
 
   function closePopups() {

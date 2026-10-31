@@ -68,6 +68,7 @@ namespace SDDM {
         QByteArray cookie { };
         bool autologin { false };
         bool greeter { false };
+        bool fingerprint { false };
         bool deferStart { false };
         bool authenticationPending { false };
         QProcessEnvironment environment { };
@@ -291,6 +292,11 @@ namespace SDDM {
         return d->greeter;
     }
 
+    bool Auth::isFingerprint() const
+    {
+        return d->fingerprint;
+    }
+
     const QByteArray& Auth::cookie() const {
         return d->cookie;
     }
@@ -353,6 +359,14 @@ namespace SDDM {
         if (on != d->greeter) {
             d->greeter = on;
             Q_EMIT greeterChanged();
+        }
+    }
+
+    void Auth::setFingerprint(bool on)
+    {
+        if (on != d->fingerprint) {
+            d->fingerprint = on;
+            Q_EMIT fingerprintChanged();
         }
     }
 
@@ -419,6 +433,8 @@ namespace SDDM {
             args << QStringLiteral("--display-server") << d->displayServerCmd;
         if (d->greeter)
             args << QStringLiteral("--greeter");
+        if (d->fingerprint)
+            args << QStringLiteral("--fingerprint");
         d->child->start(QStringLiteral("%1/gxdm-helper").arg(QStringLiteral(LIBEXEC_INSTALL_DIR)), args);
     }
 

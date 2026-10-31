@@ -1,0 +1,23 @@
+#%PAM-1.0
+# Fingerprint-only stack. gxdm runs it alongside the password stack (gxdm)
+# when fprintd has a reader and the user has enrolled fingers.
+#
+# Never prefix pam_fprintd with "-": if the module were missing, the rest of
+# this stack must not succeed on its own.
+
+auth        required    pam_shells.so
+auth        requisite   pam_nologin.so
+# Refuse while pam_faillock holds the account after failed passwords.
+-auth       requisite   pam_faillock.so         preauth
+auth        required    pam_fprintd.so
+auth        required    pam_env.so
+
+account     include     system-login
+
+# A fingerprint cannot change a password.
+password    required    pam_deny.so
+
+session     optional    pam_keyinit.so          force revoke
+session     include     system-login
+-session    optional    pam_gnome_keyring.so    auto_start
+-session    optional    pam_kwallet5.so         auto_start

@@ -25,6 +25,18 @@ Item {
   readonly property color warningColor: "#be543c"
   readonly property bool warning: errorText.length > 0
     || !!(backend && backend.lockedOut)
+  readonly property bool fingerprintListening:
+    !!(backend && backend.fingerprintListening)
+
+  // The last rejection already shook the card; say why the reader stopped.
+  Connections {
+    target: card.backend
+    ignoreUnknownSignals: true
+    function onFingerprintChanged() {
+      if (card.backend.fingerprintGaveUp)
+        card.errorText = qsTr("指纹多次不匹配，请输入密码")
+    }
+  }
 
   signal requestQuit()
 
@@ -210,7 +222,8 @@ Item {
         leftPadding: 14
         verticalAlignment: TextInput.AlignVCenter
         placeholderText: card.backend && card.backend.lockedOut
-          ? qsTr("已锁定") : qsTr("密码")
+          ? qsTr("已锁定")
+          : card.fingerprintListening ? qsTr("密码或指纹") : qsTr("密码")
         placeholderTextColor: "#80ffffff"
         color: "#f5f8ff"
         selectionColor: "#0081ff"

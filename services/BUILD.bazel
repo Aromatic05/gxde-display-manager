@@ -56,12 +56,14 @@ pkg_files(
     srcs = [
         "debian.gxdm.pam",
         "debian.gxdm-autologin.pam",
+        "debian.gxdm-fingerprint.pam",
         ":gxdm_greeter_pam",
     ],
     prefix = "/etc/pam.d",
     renames = {
         "debian.gxdm.pam": "gxdm",
         "debian.gxdm-autologin.pam": "gxdm-autologin",
+        "debian.gxdm-fingerprint.pam": "gxdm-fingerprint",
         ":gxdm_greeter_pam": "gxdm-greeter",
     },
 )

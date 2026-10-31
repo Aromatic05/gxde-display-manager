@@ -221,6 +221,9 @@ namespace SDDM {
 
         if (user == QStringLiteral("gxdm") && m_greeter)
             service = QStringLiteral("gxdm-greeter");
+        else if (m_fingerprint)
+            // pam_fprintd only, run alongside the password stack.
+            service = QStringLiteral("gxdm-fingerprint");
         else if (m_autologin)
             service = QStringLiteral("gxdm-autologin");
         result = m_pam->start(service, user);
@@ -233,6 +236,14 @@ namespace SDDM {
 
     bool PamBackend::authenticate() {
         if (!m_pam->authenticate()) {
+            if (m_fingerprint) {
+                // pam_fprintd already explained mismatches in the
+                // conversation; a timeout ("no finger") is not an error the
+                // user needs to see. Keep the generic PAM text out of the UI.
+                qWarning() << "[PAM] Fingerprint authentication ended:"
+                           << m_pam->errorString();
+                return false;
+            }
             m_app->error(m_pam->errorString(), Auth::ERROR_AUTHENTICATION);
             return false;
         }

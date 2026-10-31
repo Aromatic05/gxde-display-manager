@@ -11,6 +11,7 @@
 #include "authinterface.h"
 
 #include "Auth.h"  // SDDM::Auth (src/auth)
+#include "fingerprintunlock.h"
 
 #include <QObject>
 
@@ -28,6 +29,13 @@ public:
 
     void enableZoneDetected(bool disable);  // hot-zone removed; kept as no-op
 
+    // Fingerprint unlock, run alongside the password (see FingerprintUnlock).
+    // It listens while the lock is shown (SessionBaseModel::visibleChanged);
+    // frontends call startFingerprint() again to re-arm it after pam_fprintd
+    // gave up.
+    gxde::lock::FingerprintUnlock *fingerprint() const { return m_fingerprint; }
+    void startFingerprint();
+
 signals:
     // Emitted when a successful authentication is about to perform a power
     // action instead of simply unlocking the session. The QML frontend uses
@@ -38,12 +46,16 @@ private:
     void onUserAdded(const QString &user) override;
     void slotRequestChanged();                          // feed the password to PAM
     void onAuthentication(const QString &user, bool ok);  // unlock result
+    void onFingerprintMatched();
+    void onFingerprintRejected(const QString &message);
+    void finishUnlock();  // after a password or a finger: power action or unlock
 
     void requestGxdmPowerAction(const QString &method);     // route through GXDM
     void requestLogin1PowerAction(const QString &method);  // fallback
 
     bool m_authenticating;
     SDDM::Auth *m_auth;
+    gxde::lock::FingerprintUnlock *m_fingerprint;
     QString m_password;
 };
 

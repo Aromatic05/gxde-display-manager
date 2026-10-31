@@ -53,6 +53,7 @@ namespace SDDM {
         // not setting NOTIFY for the properties - they should be set only once before calling start
         Q_PROPERTY(bool autologin READ autologin WRITE setAutologin NOTIFY autologinChanged)
         Q_PROPERTY(bool greeter READ isGreeter WRITE setGreeter NOTIFY greeterChanged)
+        Q_PROPERTY(bool fingerprint READ isFingerprint WRITE setFingerprint NOTIFY fingerprintChanged)
         Q_PROPERTY(bool verbose READ verbose WRITE setVerbose NOTIFY verboseChanged)
         Q_PROPERTY(QByteArray cookie READ cookie WRITE setCookie NOTIFY cookieChanged)
         Q_PROPERTY(QString user READ user WRITE setUser NOTIFY userChanged)
@@ -94,6 +95,7 @@ namespace SDDM {
 
         bool autologin() const;
         bool isGreeter() const;
+        bool isFingerprint() const;
         bool verbose() const;
         const QByteArray &cookie() const;
         const QString &user() const;
@@ -132,6 +134,12 @@ namespace SDDM {
          * This will bypass authentication checks
          */
         void setGreeter(bool on = true);
+
+        /**
+         * Authenticate by fingerprint: the helper uses the gxdm-fingerprint
+         * PAM service (pam_fprintd) instead of the password stack.
+         */
+        void setFingerprint(bool on = true);
 
         /**
         * Forwards the output of the underlying authenticator to the current process
@@ -181,6 +189,7 @@ namespace SDDM {
     Q_SIGNALS:
         void autologinChanged();
         void greeterChanged();
+        void fingerprintChanged();
         void verboseChanged();
         void cookieChanged();
         void userChanged();

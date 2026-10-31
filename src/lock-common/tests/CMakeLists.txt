@@ -36,3 +36,10 @@ if(DBUS_RUN_SESSION_EXECUTABLE)
         "--config-file=${CMAKE_CURRENT_SOURCE_DIR}/dbus-test-session.conf"
         -- $<TARGET_FILE:LockServicesTest>)
 endif()
+
+add_executable(LockFingerprintTest fingerprint_unlock_test.cc)
+target_link_libraries(LockFingerprintTest PRIVATE
+    gxdm-lock-common
+    Qt6::Test
+)
+add_test(NAME LockFingerprint COMMAND LockFingerprintTest)

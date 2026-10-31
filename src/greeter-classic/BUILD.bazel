@@ -178,6 +178,7 @@ qt_cc_library(
     srcs = [
         "lock/dbus/dbuslockagent.cpp",
         "lock/dbus/dbuslockfrontservice.cpp",
+        "lock/fingerprintunlock.cpp",
         "lock/freedesktopscreensaver.cpp",
         "lock/lockshortcutmanager.cpp",
         "lock/lockworker.cpp",
@@ -186,6 +187,7 @@ qt_cc_library(
     hdrs = [
         "lock/dbus/dbuslockagent.h",
         "lock/dbus/dbuslockfrontservice.h",
+        "lock/fingerprintunlock.h",
         "lock/freedesktopscreensaver.h",
         "lock/lockshortcutmanager.h",
         "lock/lockworker.h",
@@ -196,6 +198,7 @@ qt_cc_library(
     moc_hdrs = [
         "lock/dbus/dbuslockagent.h",
         "lock/dbus/dbuslockfrontservice.h",
+        "lock/fingerprintunlock.h",
         "lock/freedesktopscreensaver.h",
         "lock/lockshortcutmanager.h",
         "lock/lockworker.h",

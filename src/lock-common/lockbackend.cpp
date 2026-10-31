@@ -82,6 +82,8 @@ LockBackend::LockBackend(SessionBaseModel* model, LockWorker* worker,
   if (worker_) {
     connect(worker_, &LockWorker::powerActionRequested, this,
             &LockBackend::onPowerActionRequested);
+    connect(worker_->fingerprint(), &FingerprintUnlock::StateChanged, this,
+            &LockBackend::FingerprintChanged);
   }
 
   onCurrentUserChanged(model_ ? model_->currentUser()
@@ -174,6 +176,19 @@ QStringList LockBackend::KbLayouts() const {
 
 QString LockBackend::CurrentKbLayout() const {
   return current_kb_layout_;
+}
+
+bool LockBackend::FingerprintListening() const {
+  return worker_ && worker_->fingerprint()->Listening();
+}
+
+bool LockBackend::FingerprintGaveUp() const {
+  return worker_ && worker_->fingerprint()->GetState() ==
+                        FingerprintUnlock::State::kGaveUp;
+}
+
+void LockBackend::StartFingerprint() {
+  if (worker_) worker_->startFingerprint();
 }
 
 void LockBackend::Authenticate(const QString& password) {

@@ -41,7 +41,8 @@ using namespace Auth;  // deepin Auth namespace (AuthInterface); SDDM::Auth stay
 
 LockWorker::LockWorker(SessionBaseModel* const model, QObject* parent)
         : AuthInterface(model, parent), m_authenticating(false),
-          m_auth(new SDDM::Auth(this)) {
+          m_auth(new SDDM::Auth(this)),
+          m_fingerprint(new gxde::lock::FingerprintUnlock(this)) {
     m_currentUserUid = getuid();
 
     // Reuse GXDM's authenticator. Forward the helper's password prompt(s) and
@@ -51,6 +52,19 @@ LockWorker::LockWorker(SessionBaseModel* const model, QObject* parent)
             &LockWorker::slotRequestChanged);
     connect(m_auth, &SDDM::Auth::authentication, this,
             &LockWorker::onAuthentication);
+    connect(m_fingerprint, &gxde::lock::FingerprintUnlock::Matched, this,
+            &LockWorker::onFingerprintMatched);
+    connect(m_fingerprint, &gxde::lock::FingerprintUnlock::Rejected, this,
+            &LockWorker::onFingerprintRejected);
+    // Hold the reader only while locked: an idle locker daemon must leave it
+    // to sudo, polkit and the like.
+    connect(m_model, &SessionBaseModel::visibleChanged, this,
+            [this](bool visible) {
+        if (visible)
+            startFingerprint();
+        else
+            m_fingerprint->Stop();
+    });
 
     const QString &switchUserButtonValue{valueByQSettings<QString>("Lock",
         "showSwitchUserButton", "ondemand")};
@@ -101,6 +115,11 @@ void LockWorker::authUser(const QString& password) {
     m_auth->start();
 }
 
+void LockWorker::startFingerprint() {
+    if (m_model->currentUser())
+        m_fingerprint->Start(m_model->currentUser()->name());
+}
+
 bool LockWorker::IsAuthenticating() const {
     return m_authenticating;
 }
@@ -115,8 +134,13 @@ void LockWorker::onUserAdded(const QString& user) {
     user_ptr->setisLogind(isLogined(user_ptr->uid()));
 
     // The locker only ever authenticates the session's own user.
-    if (user_ptr->uid() == m_currentUserUid)
+    if (user_ptr->uid() == m_currentUserUid) {
         m_model->setCurrentUser(user_ptr);
+        // Already locked: listen for a finger right away, also behind the
+        // clock.
+        if (m_model->isShow())
+            m_fingerprint->Start(user_ptr->name());
+    }
 
     if (user_ptr->uid() == m_lastLogoutUid)
         m_model->setLastLogoutUser(user_ptr);
@@ -150,6 +174,34 @@ void LockWorker::onAuthentication(const QString& user, bool ok) {
             m_model->currentUser()->startLock();
         return;
     }
+
+    finishUnlock();
+}
+
+void LockWorker::onFingerprintMatched() {
+    qDebug() << "(LockWorker) fingerprint matched";
+    // A password check may be running at the same time; the finger won.
+    if (m_authenticating) {
+        m_auth->stop();
+        m_authenticating = false;
+    }
+    m_password.clear();
+    finishUnlock();
+}
+
+void LockWorker::onFingerprintRejected(const QString& message) {
+    // A password check in flight reports its own result.
+    if (m_authenticating)
+        return;
+    // pam_fprintd's message ("Failed to match fingerprint"), translated by
+    // fprintd's own catalog. Shown like a wrong password. Fingerprint
+    // mismatches do not count towards the password lockout.
+    emit m_model->authFaildTipsMessage(message);
+    emit m_model->authFinished(false);
+}
+
+void LockWorker::finishUnlock() {
+    m_fingerprint->Stop();
 
     if (m_model->currentUser())
         m_model->currentUser()->resetLock();

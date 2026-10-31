@@ -66,6 +66,10 @@ class LockBackend : public QObject {
   Q_PROPERTY(bool userSwitchAvailable READ UserSwitchAvailable NOTIFY UserSwitchAvailableChanged)
   Q_PROPERTY(QStringList kbLayouts READ KbLayouts NOTIFY KbLayoutsChanged)
   Q_PROPERTY(QString currentKbLayout READ CurrentKbLayout NOTIFY KbLayoutsChanged)
+  // A finger on the reader unlocks (runs alongside the password).
+  Q_PROPERTY(bool fingerprintListening READ FingerprintListening NOTIFY FingerprintChanged)
+  // pam_fprintd's tries are used up; StartFingerprint() re-arms.
+  Q_PROPERTY(bool fingerprintGaveUp READ FingerprintGaveUp NOTIFY FingerprintChanged)
 
  public:
   explicit LockBackend(SessionBaseModel* model, LockWorker* worker,
@@ -91,6 +95,8 @@ class LockBackend : public QObject {
   bool UserSwitchAvailable() const;
   QStringList KbLayouts() const;
   QString CurrentKbLayout() const;
+  bool FingerprintListening() const;
+  bool FingerprintGaveUp() const;
 
   Q_INVOKABLE void Authenticate(const QString& password);
   Q_INVOKABLE void SelectUser(int index);
@@ -100,6 +106,8 @@ class LockBackend : public QObject {
   Q_INVOKABLE void SetKbLayout(const QString& layout);
   Q_INVOKABLE void ShowUserList();
   Q_INVOKABLE void NotifyUnlockFadeFinished();
+  // Listens for a finger again if it is not already (no-op otherwise).
+  Q_INVOKABLE void StartFingerprint();
 
  signals:
   void Authenticated();
@@ -118,6 +126,7 @@ class LockBackend : public QObject {
   void KbLayoutsChanged();
   void ShowUserListRequested();
   void UnlockFadeFinished();
+  void FingerprintChanged();
 
  private slots:
   void onAuthFinished(bool success);
