@@ -300,7 +300,7 @@ The GXDM daemon also owns the same service name on the system bus and exposes th
 - [x] Add support for Wayland greeter.
 - [x] Update support for CMake.
 - [x] Add support for on-screen keyboard.
-- [ ] Add Archlinux packaging.
+- [x] Add Archlinux packaging.
 
 Please refer to [opened issues](https://gitee.com/GXDE-OS/gxde-display-manager/issues) to see those feature requested.
 
