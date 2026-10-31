@@ -34,14 +34,23 @@ qt_cc_library(
     name = "lock_common",
     srcs = [
         "lockbackend.cpp",
+        "mediacontroller.cpp",
+        "notificationcounter.cpp",
+        "systemvolume.cpp",
         "userlistmodel.cpp",
     ],
     hdrs = [
         "lockbackend.h",
+        "mediacontroller.h",
+        "notificationcounter.h",
+        "systemvolume.h",
         "userlistmodel.h",
     ],
     moc_hdrs = [
         "lockbackend.h",
+        "mediacontroller.h",
+        "notificationcounter.h",
+        "systemvolume.h",
         "userlistmodel.h",
     ],
     copts = ["-std=c++20"],

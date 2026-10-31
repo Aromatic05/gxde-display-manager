@@ -60,7 +60,7 @@ Popup {
   }
 
   background: Rectangle {
-    radius: 18
+    radius: 8
     color: "#e6141a22"
     border.width: 1
     border.color: "#2effffff"
@@ -116,7 +116,7 @@ Popup {
 
         Rectangle {
           anchors.fill: parent
-          radius: 12
+          radius: 6
           color: pointer.containsMouse || userEntry.isCurrent
             ? "#24ffffff" : "#12ffffff"
           border.width: 1

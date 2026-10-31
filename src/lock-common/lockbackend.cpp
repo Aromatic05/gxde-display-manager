@@ -18,6 +18,9 @@
 #include "lockbackend.h"
 
 #include "lockworker.h"
+#include "mediacontroller.h"
+#include "notificationcounter.h"
+#include "systemvolume.h"
 #include "sessionbasemodel.h"
 #include "userinfo.h"
 #include "userlistmodel.h"
@@ -50,7 +53,10 @@ LockBackend::LockBackend(SessionBaseModel* model, LockWorker* worker,
     : QObject(parent),
       model_(model),
       worker_(worker),
-      users_(new UserListModel(model, this)) {
+      users_(new UserListModel(model, this)),
+      media_(new MediaController(this)),
+      audio_(new SystemVolume(this)),
+      notifications_(new NotificationCounter(this)) {
   if (model_) {
     connect(model_, &SessionBaseModel::authFinished, this,
             &LockBackend::onAuthFinished);
@@ -93,6 +99,18 @@ LockBackend::~LockBackend() {
 
 QAbstractItemModel* LockBackend::Users() const {
   return users_;
+}
+
+MediaController* LockBackend::Media() const {
+  return media_;
+}
+
+SystemVolume* LockBackend::Audio() const {
+  return audio_;
+}
+
+NotificationCounter* LockBackend::Notifications() const {
+  return notifications_;
 }
 
 int LockBackend::CurrentUserIndex() const {

@@ -33,14 +33,24 @@ class User;
 namespace gxde {
 namespace lock {
 
+class MediaController;
+class NotificationCounter;
+class SystemVolume;
 class UserListModel;
 
 // QML-safe facade over SessionBaseModel and LockWorker. The QML lock screen
 // never touches the legacy widget model directly.
 class LockBackend : public QObject {
   Q_OBJECT
+  Q_MOC_INCLUDE("mediacontroller.h")
+  Q_MOC_INCLUDE("notificationcounter.h")
+  Q_MOC_INCLUDE("systemvolume.h")
 
   Q_PROPERTY(QAbstractItemModel* users READ Users CONSTANT)
+  Q_PROPERTY(gxde::lock::MediaController* media READ Media CONSTANT)
+  Q_PROPERTY(gxde::lock::SystemVolume* audio READ Audio CONSTANT)
+  Q_PROPERTY(gxde::lock::NotificationCounter* notifications READ Notifications
+                 CONSTANT)
   Q_PROPERTY(int currentUserIndex READ CurrentUserIndex NOTIFY CurrentUserChanged)
   Q_PROPERTY(QString currentUserName READ CurrentUserName NOTIFY CurrentUserChanged)
   Q_PROPERTY(QString currentUserDisplayName READ CurrentUserDisplayName NOTIFY CurrentUserChanged)
@@ -63,6 +73,9 @@ class LockBackend : public QObject {
   ~LockBackend() override;
 
   QAbstractItemModel* Users() const;
+  MediaController* Media() const;
+  SystemVolume* Audio() const;
+  NotificationCounter* Notifications() const;
   int CurrentUserIndex() const;
   QString CurrentUserName() const;
   QString CurrentUserDisplayName() const;
@@ -138,6 +151,9 @@ class LockBackend : public QObject {
   SessionBaseModel* model_;
   LockWorker* worker_;
   UserListModel* users_;
+  MediaController* media_;
+  SystemVolume* audio_;
+  NotificationCounter* notifications_;
   QList<QMetaObject::Connection> current_user_connections_;
   bool authenticating_ = false;
   bool lockedOut_ = false;

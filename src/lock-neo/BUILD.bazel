@@ -1,4 +1,4 @@
-load("//bazel/qt:qt.bzl", "qt_cc_binary", "qt_qml_module")
+load("//bazel/qt:qt.bzl", "qt_cc_binary", "qt_qml_module", "qt_rcc")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,6 +10,13 @@ qt_cc_binary(
     srcs = [
         "src/main.cc",
         "//src/greeter-neo:rcc_resources",
+        # Lock screen icons (media card, volume, notifications, user switch).
+        qt_rcc(
+            name = "rcc_lock_neo",
+            qrc = "lock-neo.qrc",
+            data = glob(["icons/*.svg"]),
+            init_name = "lock_neo_icons",
+        ),
         qt_qml_module(
             name = "qml_lock",
             uri = "Lock",
@@ -20,6 +27,10 @@ qt_cc_binary(
                 "qml/components/Clock.qml",
                 "qml/components/LoginCard.qml",
                 "qml/components/LockButton.qml",
+                "qml/components/IconButton.qml",
+                "qml/components/MediaIndicator.qml",
+                "qml/components/NotificationPill.qml",
+                "qml/components/ShadowText.qml",
                 "qml/components/PowerMenu.qml",
                 "qml/components/UserAvatar.qml",
                 "qml/components/UserSwitcher.qml",

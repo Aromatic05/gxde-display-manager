@@ -14,6 +14,10 @@ set(LOCK_NEO_QML_FILES
     qml/components/Clock.qml
     qml/components/LoginCard.qml
     qml/components/LockButton.qml
+    qml/components/IconButton.qml
+    qml/components/MediaIndicator.qml
+    qml/components/NotificationPill.qml
+    qml/components/ShadowText.qml
     qml/components/PowerMenu.qml
     qml/components/UserAvatar.qml
     qml/components/UserSwitcher.qml
@@ -30,6 +34,7 @@ endforeach()
 
 qt_add_resources(LOCK_NEO_RESOURCES
     "${GXDM_REPO_ROOT}/src/greeter-neo/res/resources.qrc"
+    lock-neo.qrc
 )
 
 qt_add_executable(gxdm-lock-neo

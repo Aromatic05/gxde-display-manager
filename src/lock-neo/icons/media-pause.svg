@@ -1,0 +1,7 @@
+<!-- media-playback-pause.svg from linuxdeepin/deepin-icon-theme (bloom/actions/24/media-playback-pause.svg, commit 5d11ba4), GPL-3.0-or-later. Bloom, the DDE V23 icon theme. Recolored white for the dark lock screen. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <g fill="#FFFFFF" transform="translate(9 6)">
+    <polygon points="0 0 0 12 1 12 1 0"/>
+    <polygon points="5 0 5 12 6 12 6 0"/>
+  </g>
+</svg>

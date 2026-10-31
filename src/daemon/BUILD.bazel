@@ -108,7 +108,6 @@ qt_cc_binary(
         "XorgDisplayServer.cpp",
         "XorgUserDisplayServer.cpp",
         "WaylandDisplayServer.cpp",
-        "greeter_settings.cc",
         # generated headers (needed as inputs)
         "config.h",
         "displaymanageradaptor.h",

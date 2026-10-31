@@ -87,6 +87,12 @@ add_library(gxdm-lock-common STATIC
     lockstyle.h
     lockstylemanager.cpp
     lockstylemanager.h
+    mediacontroller.cpp
+    mediacontroller.h
+    notificationcounter.cpp
+    notificationcounter.h
+    systemvolume.cpp
+    systemvolume.h
 )
 
 target_include_directories(gxdm-lock-common PUBLIC

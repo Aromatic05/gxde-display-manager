@@ -22,6 +22,9 @@ Item {
   property bool testMode: false
   property string errorText: ""
   property string statusText: ""
+  readonly property color warningColor: "#be543c"
+  readonly property bool warning: errorText.length > 0
+    || !!(backend && backend.lockedOut)
 
   signal requestQuit()
 
@@ -62,7 +65,7 @@ Item {
   }
 
   function showError(message) {
-    errorText = String(message || qsTr("认证失败"))
+    errorText = String(message || qsTr("鉴权失败"))
     statusText = ""
     passwordField.selectAll()
     focusPassword()
@@ -97,19 +100,10 @@ Item {
   // wallpaper makes the password field readable on both light and dark images.
   Rectangle {
     anchors.fill: parent
-    radius: 20
+    radius: 8
     color: "#b8121720"
     border.width: 1
     border.color: "#2effffff"
-
-    Rectangle {
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.margins: 1
-      height: 1
-      color: "#26ffffff"
-    }
   }
 
   Column {
@@ -125,7 +119,7 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       width: 76
       height: 76
-      radius: 18
+      radius: 14
       source: card.backend ? card.backend.currentUserAvatar : ""
       name: card.backend ? card.backend.currentUserDisplayName : ""
     }
@@ -148,7 +142,7 @@ Item {
       width: parent.width
       topPadding: 2
       visible: card.testMode && card.statusText.length === 0
-      text: qsTr("演示模式：任意密码解锁，Esc 退出")
+      text: qsTr("演示模式：任意密码解锁，Esc 返回")
       color: "#99c9d5e8"
       font.pixelSize: 11
       horizontalAlignment: Text.AlignHCenter
@@ -168,7 +162,7 @@ Item {
       width: parent.width
       height: visible ? 38 : 0
       visible: card.backend && card.backend.pendingPowerAction.length > 0
-      radius: 9
+      radius: 6
       color: "#2b8a6a32"
       border.width: 1
       border.color: "#4dcaa25a"
@@ -235,14 +229,14 @@ Item {
         }
 
         background: Rectangle {
-          radius: 10
+          radius: 6
           color: passwordField.activeFocus ? "#26ffffff" : "#1affffff"
           border.width: 1
-          border.color: card.errorText.length > 0 ? "#ff9a8a"
+          border.color: card.errorText.length > 0 ? card.warningColor
             : passwordField.activeFocus ? "#66ffffff" : "#1fffffff"
 
           Behavior on border.color {
-            ColorAnimation { duration: 140 }
+            ColorAnimation { duration: 160; easing.type: Easing.OutCubic }
           }
         }
       }
@@ -253,7 +247,15 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: 36
         height: 36
-        text: "\u2192"
+        radius: 4
+        iconSource: {
+          const action = card.backend ? card.backend.pendingPowerAction : ""
+          if (action === "reboot") return "qrc:/lock/icons/action-reboot.svg"
+          if (action === "shutdown") return "qrc:/lock/icons/action-shutdown.svg"
+          if (action === "suspend") return "qrc:/lock/icons/power-suspend.svg"
+          if (action === "hibernate") return "qrc:/lock/icons/power-hibernate.svg"
+          return "qrc:/lock/icons/lock.svg"
+        }
         enabled: card.backend && !card.backend.authenticating
           && !card.backend.lockedOut
           && passwordField.text.length > 0
@@ -263,14 +265,36 @@ Item {
 
     Item {
       width: 1
-      height: 10
+      height: 6
     }
 
     Row {
+      id: messageRow
+
+      property string shownText: ""
+      readonly property string currentText: {
+        if (card.errorText.length > 0) return card.errorText
+        if (card.backend && card.backend.lockedOut) {
+          return qsTr("尝试次数过多，请在 %1 分钟后重试")
+            .arg(card.backend.lockMinutes)
+        }
+        return card.statusText
+      }
+      readonly property bool active: currentText.length > 0
+        || busyIndicator.visible
+
+      onCurrentTextChanged: if (currentText.length > 0) shownText = currentText
+      Component.onCompleted: shownText = currentText
+
       width: parent.width
-      height: Math.max(busyIndicator.visible ? 22 : 0,
-                       message.implicitHeight)
+      height: active ? Math.max(busyIndicator.visible ? 22 : 0,
+                                message.implicitHeight) : 0
+      clip: true
       spacing: 8
+
+      Behavior on height {
+        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+      }
 
       BusyIndicator {
         id: busyIndicator
@@ -287,17 +311,15 @@ Item {
 
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width - (busyIndicator.visible ? 30 : 0)
-        text: {
-          if (card.errorText.length > 0) return card.errorText
-          if (card.backend && card.backend.lockedOut) {
-            return qsTr("尝试次数过多，请在 %1 分钟后重试")
-              .arg(card.backend.lockMinutes)
-          }
-          return card.statusText
-        }
-        color: card.errorText.length > 0 || (card.backend && card.backend.lockedOut)
-          ? "#ff9a8a" : "#b8d6c0"
+        leftPadding: 4
+        text: messageRow.shownText
+        color: card.warning ? card.warningColor : "#b8d6c0"
+        opacity: messageRow.currentText.length > 0 ? 1.0 : 0.0
         font.pixelSize: 12
+
+        Behavior on opacity {
+          NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+        }
         wrapMode: Text.Wrap
         renderType: Text.NativeRendering
       }
@@ -324,21 +346,21 @@ Item {
     NumberAnimation {
       target: shakeTranslate
       property: "x"
-      to: -9
+      to: -8
       duration: 50
       easing.type: Easing.OutQuad
     }
     NumberAnimation {
       target: shakeTranslate
       property: "x"
-      to: 8
+      to: 7
       duration: 80
       easing.type: Easing.InOutQuad
     }
     NumberAnimation {
       target: shakeTranslate
       property: "x"
-      to: -5
+      to: -4
       duration: 70
       easing.type: Easing.InOutQuad
     }

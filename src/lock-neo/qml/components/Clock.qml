@@ -14,39 +14,47 @@
 
 import QtQuick
 
-Column {
+Item {
   id: clock
 
-  property bool primaryScreen: true
   property date now: new Date()
+  property real referenceHeight: 720
+  property real compact: 0
 
-  spacing: 2
+  implicitWidth: Math.max(time.width * time.scale, date.width)
+  implicitHeight: date.y + date.height
+  width: implicitWidth
+  height: implicitHeight
 
   Timer {
     interval: 1000
     running: true
     repeat: true
+    triggeredOnStart: true
     onTriggered: clock.now = new Date()
   }
 
-  Text {
+  ShadowText {
+    id: time
+
     anchors.horizontalCenter: parent.horizontalCenter
     text: Qt.formatTime(clock.now, "HH:mm")
-    color: "#f5f8ff"
-    font.pixelSize: {
-      const base = clock.parent ? clock.parent.height : 720
-      return Math.max(44, Math.min(104, Math.round(base * 0.09)))
-    }
-    font.weight: Font.Light
-    font.letterSpacing: -1
-    renderType: Text.NativeRendering
+    pixelSize: Math.max(64, Math.min(144, Math.round(clock.referenceHeight * 0.13)))
+    weight: Font.Bold
+    shadowOpacity: 0.24
+    shadowOffset: 3
+    transformOrigin: Item.Top
+    scale: 1.0 - 0.4 * clock.compact
   }
 
-  Text {
+  ShadowText {
+    id: date
+
     anchors.horizontalCenter: parent.horizontalCenter
-    text: Qt.formatDate(clock.now, Qt.SystemLocaleLongDate)
-    color: clock.primaryScreen ? "#d9e2f0" : "#b3c0d2"
-    font.pixelSize: 16
-    renderType: Text.NativeRendering
+    y: Math.round((time.inkBottom + time.pixelSize * 0.14) * time.scale - inkTop)
+    text: clock.now.toLocaleDateString(Qt.locale(), Locale.LongFormat)
+    pixelSize: Math.max(16, Math.min(22, Math.round(time.pixelSize * 0.17)))
+    weight: Font.Light
+    shadowOpacity: 0.22
   }
 }

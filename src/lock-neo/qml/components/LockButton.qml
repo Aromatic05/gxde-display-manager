@@ -19,6 +19,7 @@ Rectangle {
   id: button
 
   property string text: ""
+  property url iconSource
   property string tooltip: ""
   signal clicked()
 
@@ -39,10 +40,20 @@ Rectangle {
     ColorAnimation { duration: 120 }
   }
 
+  Image {
+    anchors.centerIn: parent
+    visible: button.iconSource.toString().length > 0
+    width: 20
+    height: 20
+    source: button.iconSource
+    sourceSize: Qt.size(40, 40)
+  }
+
   Text {
     id: label
 
     anchors.centerIn: parent
+    visible: button.iconSource.toString().length === 0
     text: button.text
     color: "#f2f6ff"
     font.pixelSize: 15

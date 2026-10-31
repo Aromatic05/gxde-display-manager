@@ -22,10 +22,10 @@ Popup {
   signal triggered(string action)
 
   readonly property var allActions: [
-    { action: "reboot", label: qsTr("重启"), icon: "\u27F3" },
-    { action: "shutdown", label: qsTr("关机"), icon: "\u23FB" },
-    { action: "suspend", label: qsTr("待机"), icon: "\u263E" },
-    { action: "hibernate", label: qsTr("休眠"), icon: "\u23FE" }
+    { action: "reboot", label: qsTr("重启"), icon: "qrc:/lock/icons/power-reboot.svg" },
+    { action: "shutdown", label: qsTr("关机"), icon: "qrc:/lock/icons/power-shutdown.svg" },
+    { action: "suspend", label: qsTr("待机"), icon: "qrc:/lock/icons/power-suspend.svg" },
+    { action: "hibernate", label: qsTr("休眠"), icon: "qrc:/lock/icons/power-hibernate.svg" }
   ]
 
   readonly property var actions: {
@@ -75,7 +75,7 @@ Popup {
   }
 
   background: Rectangle {
-    radius: 14
+    radius: 8
     color: "#d9141a22"
     border.width: 1
     border.color: "#2effffff"
@@ -112,7 +112,7 @@ Popup {
           anchors.fill: parent
           anchors.leftMargin: 6
           anchors.rightMargin: 6
-          radius: 8
+          radius: 6
           color: pointer.containsMouse ? "#2bffffff" : "transparent"
 
           Behavior on color {
@@ -120,14 +120,15 @@ Popup {
           }
         }
 
-        Text {
+        Image {
           anchors.left: parent.left
-          anchors.leftMargin: 16
+          anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
-          text: entry.modelData.icon
-          color: "#f2f6ff"
-          font.pixelSize: 15
-          renderType: Text.NativeRendering
+          width: 24
+          height: 24
+          source: entry.modelData.icon
+          sourceSize: Qt.size(48, 48)
+          opacity: 0.9
         }
 
         Text {

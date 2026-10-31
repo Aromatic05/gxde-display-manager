@@ -193,6 +193,10 @@ int main(int argc, char* argv[]) {
   // window, which steals window activation from the lock window; the field
   // then loses focus, the panel closes, the field refocuses... and flickers.
   qputenv("QT_VIRTUALKEYBOARD_DESKTOP_DISABLE", QByteArrayLiteral("1"));
+  
+  if (!qEnvironmentVariableIsSet("QSG_USE_SIMPLE_ANIMATION_DRIVER")) {
+    qputenv("QSG_USE_SIMPLE_ANIMATION_DRIVER", QByteArrayLiteral("1"));
+  }
 
   GxdmGreeterCursor::applyConfiguredTheme();
   if (useX11) {
