@@ -30,6 +30,8 @@
 class LockWorker;
 class User;
 
+class QImage;
+
 namespace gxde {
 namespace lock {
 
@@ -60,6 +62,8 @@ class LockBackend : public QObject {
   Q_PROPERTY(int lockMinutes READ LockMinutes NOTIFY LockedOutChanged)
   Q_PROPERTY(QString errorMessage READ ErrorMessage NOTIFY ErrorMessageChanged)
   Q_PROPERTY(QString backgroundUri READ BackgroundUri NOTIFY BackgroundChanged)
+  Q_PROPERTY(qreal backgroundLuminance READ BackgroundLuminance NOTIFY
+                 BackgroundLuminanceChanged)
   Q_PROPERTY(QStringList availableActions READ AvailableActions NOTIFY AvailableActionsChanged)
   Q_PROPERTY(QString pendingPowerAction READ PendingPowerAction NOTIFY PendingPowerActionChanged)
   Q_PROPERTY(bool virtualKeyboardAvailable READ VirtualKeyboardAvailable NOTIFY VirtualKeyboardAvailableChanged)
@@ -89,6 +93,7 @@ class LockBackend : public QObject {
   int LockMinutes() const;
   QString ErrorMessage() const;
   QString BackgroundUri() const;
+  qreal BackgroundLuminance() const;
   QStringList AvailableActions() const;
   QString PendingPowerAction() const;
   bool VirtualKeyboardAvailable() const;
@@ -118,6 +123,7 @@ class LockBackend : public QObject {
   void LockedOutChanged();
   void ErrorMessageChanged();
   void BackgroundChanged();
+  void BackgroundLuminanceChanged();
   void AvailableActionsChanged();
   void PendingPowerActionChanged();
   void PowerActionStarted(const QString& action);
@@ -155,6 +161,7 @@ class LockBackend : public QObject {
   static QString normalizeImageUri(const QString& path);
  public:
   static QString VersionedImageUri(const QString& path);
+  static qreal MeasureLuminance(const QImage& image);
 
  private:
   static QString powerActionToString(SessionBaseModel::PowerAction action);
@@ -173,6 +180,8 @@ class LockBackend : public QObject {
   int lockMinutes_ = 0;
   QString error_message_;
   QString background_uri_;
+  qreal background_luminance_ = 0;
+  quint64 luminance_generation_ = 0;
   QStringList available_actions_;
   QString pending_power_action_;
   bool virtual_keyboard_available_ = false;

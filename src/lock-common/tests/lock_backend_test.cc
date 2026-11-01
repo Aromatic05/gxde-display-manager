@@ -17,6 +17,7 @@
 
 #include <QtTest>
 
+#include <QPainter>
 #include <QSignalSpy>
 
 #include <unistd.h>
@@ -76,6 +77,7 @@ class LockBackendTest : public QObject {
   void switchUserUsesWorker();
   void lockedOutStateFollowsUser();
   void rewrittenWallpaperGetsNewUri();
+  void measuresBrightnessBehindTheClock();
 };
 
 void LockBackendTest::userModelMirrorsSessionModel() {
@@ -285,6 +287,37 @@ void LockBackendTest::rewrittenWallpaperGetsNewUri() {
            QString("qrc:/img/bg.jpg"));
   QCOMPARE(gxde::lock::LockBackend::VersionedImageUri(dir.filePath("missing")),
            QUrl::fromLocalFile(dir.filePath("missing")).toString());
+}
+
+void LockBackendTest::measuresBrightnessBehindTheClock() {
+  using gxde::lock::LockBackend;
+  QImage white(1920, 1080, QImage::Format_RGB32);
+  white.fill(Qt::white);
+  QVERIFY(LockBackend::MeasureLuminance(white) > 0.99);
+
+  QImage black(1920, 1080, QImage::Format_RGB32);
+  black.fill(Qt::black);
+  QVERIFY(LockBackend::MeasureLuminance(black) < 0.01);
+
+  // Dark edges do not hide a bright centre, where the clock sits...
+  QImage centre = black;
+  QPainter(&centre).fillRect(QRect(480, 300, 960, 480), Qt::white);
+  QVERIFY(LockBackend::MeasureLuminance(centre) > 0.99);
+
+  // ...and bright edges outside it do not count.
+  QImage edges = white;
+  QPainter(&edges).fillRect(QRect(384, 270, 1152, 540), Qt::black);
+  QVERIFY(LockBackend::MeasureLuminance(edges) < 0.01);
+
+  // Rec. 709: green is the brightest primary, blue the darkest.
+  QImage green(160, 90, QImage::Format_RGB32);
+  green.fill(QColor(0, 255, 0));
+  QImage blue(160, 90, QImage::Format_RGB32);
+  blue.fill(QColor(0, 0, 255));
+  QVERIFY(LockBackend::MeasureLuminance(green) >
+          LockBackend::MeasureLuminance(blue));
+
+  QCOMPARE(LockBackend::MeasureLuminance(QImage()), 0.0);
 }
 
 QTEST_GUILESS_MAIN(LockBackendTest)

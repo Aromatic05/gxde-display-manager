@@ -28,7 +28,14 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QImage>
+#include <QImageReader>
+#include <QPointer>
+#include <QThreadPool>
 #include <QUrl>
+
+#include <algorithm>
+#include <vector>
 
 #include <unistd.h>
 
@@ -154,6 +161,10 @@ QString LockBackend::ErrorMessage() const {
 
 QString LockBackend::BackgroundUri() const {
   return background_uri_;
+}
+
+qreal LockBackend::BackgroundLuminance() const {
+  return background_luminance_;
 }
 
 QStringList LockBackend::AvailableActions() const {
@@ -406,6 +417,56 @@ void LockBackend::updateBackground() {
 
   background_uri_ = uri;
   emit BackgroundChanged();
+
+  const quint64 generation = ++luminance_generation_;
+  const QUrl url(uri);
+  QString file;
+  if (url.isLocalFile()) {
+    file = url.toLocalFile();
+  } else if (url.scheme() == QLatin1String("qrc")) {
+    file = QLatin1Char(':') + url.path();
+  }
+  QPointer<LockBackend> self(this);
+  QThreadPool::globalInstance()->start([self, generation, file] {
+    qreal luminance = 0;
+    if (!file.isEmpty()) {
+      QImageReader reader(file);
+      reader.setAutoTransform(true);
+      const QImage image = reader.read();
+      if (!image.isNull()) luminance = MeasureLuminance(image);
+    }
+    QMetaObject::invokeMethod(
+        QCoreApplication::instance(), [self, generation, luminance] {
+          if (!self || generation != self->luminance_generation_) return;
+          if (qFuzzyCompare(1 + luminance, 1 + self->background_luminance_)) {
+            return;
+          }
+          self->background_luminance_ = luminance;
+          emit self->BackgroundLuminanceChanged();
+        });
+  });
+}
+
+qreal LockBackend::MeasureLuminance(const QImage& image) {
+  if (image.isNull()) return 0;
+  const QImage small = image
+      .scaled(160, 90, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+      .convertToFormat(QImage::Format_RGB32);
+  const int x0 = small.width() * 2 / 10, x1 = small.width() * 8 / 10;
+  const int y0 = small.height() / 4, y1 = small.height() * 3 / 4;
+  std::vector<qreal> lumas;
+  lumas.reserve(static_cast<size_t>((x1 - x0) * (y1 - y0)));
+  for (int y = y0; y < y1; ++y) {
+    const auto* line = reinterpret_cast<const QRgb*>(small.constScanLine(y));
+    for (int x = x0; x < x1; ++x) {
+      lumas.push_back((0.2126 * qRed(line[x]) + 0.7152 * qGreen(line[x]) +
+                       0.0722 * qBlue(line[x])) / 255.0);
+    }
+  }
+  if (lumas.empty()) return 0;
+  auto nth = lumas.begin() + static_cast<long>(lumas.size() / 2);
+  std::nth_element(lumas.begin(), nth, lumas.end());
+  return *nth;
 }
 
 void LockBackend::updateLockState() {

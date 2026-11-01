@@ -25,9 +25,19 @@ Item {
   property bool windowVisible: true
   readonly property bool ready: backend !== null
 
-  // Lock anim: blur strength graduately applies, and 
+  // Lock anim: the wallpaper fades in sharp. It blurs only behind the password
+  // card, following the clock <-> password stage transition both ways.
   property real revealProgress: 0
   readonly property real wallpaperBlurMax: 1.0
+  readonly property real clockStageDim: {
+    const luma = (screen.backend && screen.backend.backgroundLuminance) || 0
+    return luma > 0.5 ? 1 - 0.5 / luma : 0
+  }
+  property real clockStageDimShown: clockStageDim
+  Behavior on clockStageDimShown {
+    enabled: screen.windowVisible
+    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+  }
   property bool unlocking: false
 
   property bool passwordStage: false
@@ -254,11 +264,12 @@ Item {
     layer.enabled: visible
     layer.smooth: true
     layer.effect: MultiEffect {
+      objectName: "wallpaperEffect"
       blurEnabled: true
       blurMax: 32
-      blur: screen.wallpaperBlurMax * screen.revealProgress
-      brightness: -0.22
-      saturation: 0.9
+      blur: screen.wallpaperBlurMax * screen.clockProgress
+      autoPaddingEnabled: false
+      brightness: -0.22 * screen.clockProgress
       contrast: 0.02
     }
   }
@@ -266,10 +277,21 @@ Item {
   Rectangle {
     anchors.fill: parent
     color: "#33000000"
+    opacity: screen.clockProgress
+    visible: opacity > 0
+  }
+
+  Rectangle {
+    objectName: "clockStageDim"
+    anchors.fill: parent
+    color: "black"
+    opacity: screen.clockStageDimShown * (1 - screen.clockProgress)
+    visible: opacity > 0
   }
 
   Rectangle {
     anchors.fill: parent
+    opacity: 0.5 + 0.5 * screen.clockProgress
     gradient: Gradient {
       GradientStop { position: 0.0; color: "#66000000" }
       GradientStop { position: 0.45; color: "#1f000000" }
