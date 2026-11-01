@@ -39,6 +39,7 @@ Item {
   }
 
   signal requestQuit()
+  signal errorShown()
 
   implicitWidth: 380
   implicitHeight: content.implicitHeight + 48
@@ -82,6 +83,7 @@ Item {
     passwordField.selectAll()
     focusPassword()
     shake.restart()
+    card.errorShown()
   }
 
   function showSuccess() {

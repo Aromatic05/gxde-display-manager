@@ -132,7 +132,6 @@ Item {
   function handleAuthenticationFailed(message) {
     screen.enterPasswordStage()
     loginCard.showError(message)
-    authFailureGlow.flash()
   }
 
   function handlePowerActionStarted(action) {
@@ -336,6 +335,7 @@ Item {
     backend: screen.backend
     testMode: screen.testMode
     onRequestQuit: screen.requestQuit()
+    onErrorShown: authFailureGlow.flash()
   }
 
   Text {
