@@ -845,3 +845,7 @@ build/*
 /debian/*.substvars
 /debian/*.log
 /obj-*/
+
+# Archlinux artifacts
+arch/*
+!arch/PKGBUILD

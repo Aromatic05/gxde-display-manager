@@ -180,9 +180,17 @@ add_custom_command(
     VERBATIM
 )
 
-set(NEO_LOCK_WAYLAND_PROTOCOL_SOURCES
+# The generated files belong to a target in this directory: CMake only runs a
+# custom command for targets defined next to it, and with policy CMP0118 OLD
+# (cmake_minimum_required 3.16) other directories would not even know the
+# files are generated. gxdm-lock-backend (src/lock-common) links this instead
+# of listing them; a clean configure failed with "Cannot find source file".
+add_library(gxdm-ext-session-lock-protocol STATIC
     "${EXT_SESSION_LOCK_CLIENT_HEADER}"
     "${EXT_SESSION_LOCK_PROTOCOL_CODE}"
+)
+target_include_directories(gxdm-ext-session-lock-protocol PUBLIC
+    "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 # Shared authentication, user and D-Bus backend plus the QML-facing facade.
@@ -210,7 +218,6 @@ add_executable(gxdm-lock-classic
     ${NEO_VENDOR_SOURCES}
     ${NEO_VENDOR_HEADERS}
     ${GXDM_AUTH_FILES}
-    ${NEO_LOCK_WAYLAND_PROTOCOL_SOURCES}
     "${GXDM_REPO_ROOT}/src/lock-common/lockstyle.cpp"
     "${GXDM_REPO_ROOT}/src/lock-common/lockstyle.h"
     "${GXDM_REPO_ROOT}/src/lock-common/lockstylemanager.cpp"
@@ -234,6 +241,7 @@ target_include_directories(gxdm-lock-classic PRIVATE
 )
 target_link_libraries(gxdm-lock-classic PRIVATE
     ${NEO_COMMON_LIBS}
+    gxdm-ext-session-lock-protocol
     LayerShellQt::Interface
     Qt6::Qml
     Qt6::WaylandClientPrivate

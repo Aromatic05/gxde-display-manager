@@ -35,8 +35,6 @@ set(GXDM_LOCK_BACKEND_SOURCES
     "${GXDM_REPO_ROOT}/src/common/FingerprintSession.cpp"
     ${GXDM_LOCK_VENDOR_SOURCES}
     ${GXDM_AUTH_FILES}
-    ${EXT_SESSION_LOCK_CLIENT_HEADER}
-    ${EXT_SESSION_LOCK_PROTOCOL_CODE}
 )
 
 set(GXDM_LOCK_BACKEND_HEADERS
@@ -79,6 +77,7 @@ target_include_directories(gxdm-lock-backend PUBLIC
 
 target_link_libraries(gxdm-lock-backend PUBLIC
     ${NEO_COMMON_LIBS}
+    gxdm-ext-session-lock-protocol
     Qt6::Qml
     Qt6::WaylandClientPrivate
 )
