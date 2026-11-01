@@ -433,7 +433,7 @@ Item {
         const wasOpen = screen.mediaCardRequested
         screen.closePopups()
         screen.mediaCardRequested = !wasOpen
-        if (!wasOpen) mediaIndicator.volumePinned = true
+        if (!wasOpen) mediaIndicator.tapped = true
       }
 
       WheelHandler {

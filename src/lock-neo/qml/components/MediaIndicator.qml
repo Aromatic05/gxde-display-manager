@@ -23,17 +23,15 @@ Rectangle {
   readonly property bool hasMedia: media !== null && media.available
   readonly property bool hasAudio: audio !== null && audio.available
   property bool volumeExpanded: false
-  property bool volumePinned: false
   property bool tapped: false
   property bool hovered: false
   readonly property bool controlsShown: hasMedia
-    && (hovered || tapped || volumePinned)
+    && (hovered || tapped)
   readonly property bool volumeShown: hasAudio
-    && (!hasMedia || (controlsShown && (volumeExpanded || volumePinned)))
+    && (!hasMedia || (controlsShown && volumeExpanded))
 
   function collapse() {
     volumeExpanded = false
-    volumePinned = false
     tapped = false
   }
 
@@ -191,15 +189,20 @@ Rectangle {
     }
 
     Item {
+      id: progressRow
+
+      readonly property real lineCenter: 8
+
       width: parent.width
-      height: 16
+      height: 12
       visible: card.hasMedia && card.media.length > 0
 
       SmallText {
         id: elapsed
 
         anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: parent.top
+        anchors.verticalCenterOffset: progressRow.lineCenter
         width: 34
         text: card.formatTime(card.media ? card.media.position : 0)
       }
@@ -212,7 +215,8 @@ Rectangle {
         anchors.right: total.left
         anchors.leftMargin: 6
         anchors.rightMargin: 6
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: parent.top
+        anchors.verticalCenterOffset: progressRow.lineCenter
         height: 16
 
         Track {
@@ -247,7 +251,8 @@ Rectangle {
         id: total
 
         anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenter: parent.top
+        anchors.verticalCenterOffset: progressRow.lineCenter
         width: 34
         horizontalAlignment: Text.AlignRight
         text: card.formatTime(card.media ? card.media.length : 0)
@@ -346,12 +351,7 @@ Rectangle {
         accessibleName: qsTr("音量")
         opacity: card.volumeShown || hovered ? 1.0 : 0.6
         onClicked: {
-          if (card.volumeShown) {
-            card.volumeExpanded = false
-            card.volumePinned = false
-          } else {
-            card.volumeExpanded = true
-          }
+          card.volumeExpanded = !card.volumeShown
         }
       }
     }
