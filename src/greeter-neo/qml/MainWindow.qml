@@ -463,6 +463,7 @@ Item {
 
           UserSelecter {
             id: userSelecter
+            objectName: "userSelecter"
 
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -Math.min(root.keyboardInset / 2,
@@ -704,9 +705,24 @@ Item {
         if (event.key === Qt.Key_Escape) {
           clockView.positionedAtTop = false
           root.virtualKeyboardRequested = false
-        } else if (clockView.positionedAtTop
-            && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
-          userSelecter.confirmUser(userSelecter.currentIndex)
+        } else if (clockView.positionedAtTop && !root.loginSucceeded) {
+          switch (event.key) {
+          case Qt.Key_Left:
+          case Qt.Key_Up:
+            userSelecter.moveSelection(-1)
+            break
+          case Qt.Key_Right:
+          case Qt.Key_Down:
+            userSelecter.moveSelection(1)
+            break
+          case Qt.Key_Return:
+          case Qt.Key_Enter:
+          case Qt.Key_Space:
+            if (!userSelecter.confirmSelection()) userSelecter.moveSelection(1)
+            break
+          default:
+            break
+          }
         } else {
           root.requestLogin()
         }

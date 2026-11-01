@@ -39,6 +39,7 @@ FocusScope {
   property url previousIconSource: "qrc:/icons/prev.svg"
   property url nextIconSource: "qrc:/icons/next.svg"
   property real pendingWheelAngle: 0
+  property bool notListedSelected: false
 
   signal userConfirmed(int index, var user)
   signal notListedRequested()
@@ -105,9 +106,55 @@ FocusScope {
     if (index < 0 || index >= modelCount()) {
       return
     }
+    root.notListedSelected = false
     userList.currentIndex = index
     root.userConfirmed(index, userAt(index))
   }
+
+  function moveSelection(step) {
+    const count = modelCount()
+    const last = count - 1 + (root.showNotListed ? 1 : 0)
+    if (last < 0) return
+    let index = root.notListedSelected ? count : userList.currentIndex
+    if (index < 0) {
+      index = step > 0 ? 0 : Math.max(0, count - 1)
+    } else {
+      index = Math.max(0, Math.min(last, index + step))
+    }
+    if (index >= count) {
+      root.notListedSelected = true
+      userList.currentIndex = -1
+    } else {
+      root.notListedSelected = false
+      userList.currentIndex = index
+      ensureVisible(index)
+    }
+  }
+
+  function confirmSelection() {
+    if (root.notListedSelected) {
+      root.notListedRequested()
+      return true
+    }
+    if (userList.currentIndex < 0) return false
+    confirmUser(userList.currentIndex)
+    return true
+  }
+
+  function ensureVisible(index) {
+    const stride = root.delegateWidth + root.delegateSpacing
+    const left = index * stride
+    const right = left + root.delegateWidth
+    const base = contentAnimation.running ? contentAnimation.to
+      : userList.contentX
+    if (left < base) {
+      scrollTo(left)
+    } else if (right > base + userList.width) {
+      scrollTo(right - userList.width)
+    }
+  }
+
+  onRevealedChanged: if (!revealed) root.notListedSelected = false
 
   function boundedContentX(value) {
     return Math.max(0, Math.min(userList.maximumContentX, value))
@@ -476,7 +523,7 @@ FocusScope {
     visible: root.showNotListed
     text: root.notListedText
     color: root.foregroundColor
-    opacity: (notListedHover.hovered ? 1.0 : 0.78)
+    opacity: (notListedHover.hovered || root.notListedSelected ? 1.0 : 0.78)
       * root.clamp01((root.revealProgress - 0.5) / 0.5)
     transform: Translate {
       y: (1 - root.clamp01((root.revealProgress - 0.5) / 0.5)) * 14
@@ -486,7 +533,8 @@ FocusScope {
       anchors.top: parent.baseline
       anchors.topMargin: 3
       anchors.horizontalCenter: parent.horizontalCenter
-      width: notListedHover.hovered ? parent.width : 0
+      width: notListedHover.hovered || root.notListedSelected
+        ? parent.width : 0
       height: 1
       color: root.foregroundColor
 
