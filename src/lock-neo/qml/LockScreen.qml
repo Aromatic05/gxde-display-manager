@@ -305,15 +305,15 @@ Item {
     id: clock
 
     readonly property real topY: Math.max(32, Math.round(parent.height * 0.06))
-    readonly property real centerY: Math.round((parent.height - height
-      - (notificationPill.shown ? notificationPill.height + 20 : 0)) / 2)
+    readonly property real clockStageY: Math.round(parent.height * 0.12
+      - timeInkTop)
 
     readonly property bool crowded: Math.round((parent.height
       - (keyboardPanel.height + keyboardPanel.screenMargin)
       - loginCard.height) / 2) < topY + height + 12
 
     anchors.horizontalCenter: parent.horizontalCenter
-    y: Math.round(centerY + (topY - centerY) * screen.clockProgress)
+    y: Math.round(clockStageY + (topY - clockStageY) * screen.clockProgress)
     referenceHeight: parent.height
     compact: screen.clockProgress
     opacity: crowded && keyboardPanel.visible ? 1 - keyboardPanel.slide : 1

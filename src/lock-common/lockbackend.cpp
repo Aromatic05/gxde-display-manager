@@ -452,8 +452,8 @@ qreal LockBackend::MeasureLuminance(const QImage& image) {
   const QImage small = image
       .scaled(160, 90, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
       .convertToFormat(QImage::Format_RGB32);
-  const int x0 = small.width() * 2 / 10, x1 = small.width() * 8 / 10;
-  const int y0 = small.height() / 4, y1 = small.height() * 3 / 4;
+  const int x0 = small.width() * 3 / 10, x1 = small.width() * 7 / 10;
+  const int y0 = small.height() / 10, y1 = small.height() * 4 / 10;
   std::vector<qreal> lumas;
   lumas.reserve(static_cast<size_t>((x1 - x0) * (y1 - y0)));
   for (int y = y0; y < y1; ++y) {

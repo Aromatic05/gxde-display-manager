@@ -299,15 +299,13 @@ void LockBackendTest::measuresBrightnessBehindTheClock() {
   black.fill(Qt::black);
   QVERIFY(LockBackend::MeasureLuminance(black) < 0.01);
 
-  // Dark edges do not hide a bright centre, where the clock sits...
-  QImage centre = black;
-  QPainter(&centre).fillRect(QRect(480, 300, 960, 480), Qt::white);
-  QVERIFY(LockBackend::MeasureLuminance(centre) > 0.99);
+  QImage top = black;
+  QPainter(&top).fillRect(QRect(480, 54, 960, 432), Qt::white);
+  QVERIFY(LockBackend::MeasureLuminance(top) > 0.99);
 
-  // ...and bright edges outside it do not count.
-  QImage edges = white;
-  QPainter(&edges).fillRect(QRect(384, 270, 1152, 540), Qt::black);
-  QVERIFY(LockBackend::MeasureLuminance(edges) < 0.01);
+  QImage below = white;
+  QPainter(&below).fillRect(QRect(500, 80, 920, 380), Qt::black);
+  QVERIFY(LockBackend::MeasureLuminance(below) < 0.01);
 
   // Rec. 709: green is the brightest primary, blue the darkest.
   QImage green(160, 90, QImage::Format_RGB32);

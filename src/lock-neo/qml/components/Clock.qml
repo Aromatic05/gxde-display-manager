@@ -20,6 +20,18 @@ Item {
   property date now: new Date()
   property real referenceHeight: 720
   property real compact: 0
+  readonly property real timeInkTop: time.inkTop
+
+  function dateText(when) {
+    const locale = Qt.locale()
+    if (locale.name.startsWith("zh") || locale.name.startsWith("ja")) {
+      return Qt.formatDate(when, "M月d日") + " "
+        + locale.dayName(when.getDay(), Locale.LongFormat)
+    }
+    return locale.dayName(when.getDay(), Locale.LongFormat) + ", "
+      + locale.monthName(when.getMonth(), Locale.LongFormat) + " "
+      + when.getDate()
+  }
 
   implicitWidth: Math.max(time.width * time.scale, date.width)
   implicitHeight: date.y + date.height
@@ -38,9 +50,9 @@ Item {
     id: time
 
     anchors.horizontalCenter: parent.horizontalCenter
-    text: Qt.formatTime(clock.now, "HH:mm")
+    text: Qt.formatTime(clock.now, "H:mm")
     pixelSize: Math.max(64, Math.min(144, Math.round(clock.referenceHeight * 0.13)))
-    weight: Font.Bold
+    weight: Font.DemiBold
     shadowOpacity: 0.24
     shadowOffset: 3
     transformOrigin: Item.Top
@@ -51,10 +63,10 @@ Item {
     id: date
 
     anchors.horizontalCenter: parent.horizontalCenter
-    y: Math.round((time.inkBottom + time.pixelSize * 0.14) * time.scale - inkTop)
-    text: clock.now.toLocaleDateString(Qt.locale(), Locale.LongFormat)
-    pixelSize: Math.max(16, Math.min(22, Math.round(time.pixelSize * 0.17)))
-    weight: Font.Light
+    y: Math.round((time.inkBottom + time.pixelSize * 0.18) * time.scale - inkTop)
+    text: clock.dateText(clock.now)
+    pixelSize: Math.max(16, Math.min(28, Math.round(time.pixelSize * 0.2)))
+    weight: Font.Medium
     shadowOpacity: 0.22
   }
 }

@@ -23,7 +23,7 @@ Item {
   property real shadowOpacity: 0.25
   property real shadowOffset: 2
   readonly property alias font: label.font
-  readonly property rect inkBounds: metrics.tightBoundingRect(label.text)
+  readonly property rect inkBounds: metrics.tightBoundingRect
   readonly property real inkTop: label.baselineOffset + inkBounds.y
   readonly property real inkBottom: inkTop + inkBounds.height
 
@@ -32,9 +32,10 @@ Item {
   width: implicitWidth
   height: implicitHeight
 
-  FontMetrics {
+  TextMetrics {
     id: metrics
     font: label.font
+    text: label.text
   }
 
   Text {
