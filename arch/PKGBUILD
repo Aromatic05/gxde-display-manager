@@ -1,6 +1,6 @@
 # Maintainer: CharOfString <root@charofstring.cc>
 pkgname=gxdm-git
-pkgver=1.3.5
+pkgver=1.3.6
 pkgrel=1
 pkgdesc='GXDE Display Manager, an SDDM fork with the GXDE greeter'
 arch=('x86_64' 'aarch64')

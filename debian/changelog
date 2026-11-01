@@ -1,3 +1,10 @@
+gxde-display-manager-se (1.3.6-gxde1) unstable; urgency=medium
+
+  * 使用Qt Quick重制锁屏模块
+  * 新增指纹支持
+
+ -- CharOfString <root@charofstring.cc> Sat, 31 Oct 2026 19:49:02 -0500
+
 gxde-display-manager-se (1.3.5-gxde1) unstable; urgency=medium
 
   * 新版 Greeter 在只有一个用户时默认选中该用户：退出时间窗口后再次
