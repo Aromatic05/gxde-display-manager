@@ -26,6 +26,8 @@
 #include "userlistmodel.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QFileInfo>
 #include <QUrl>
 
 #include <unistd.h>
@@ -399,7 +401,7 @@ void LockBackend::updateAvailableActions() {
 void LockBackend::updateBackground() {
   const std::shared_ptr<User> user = model_ ? model_->currentUser() : nullptr;
   const QString uri =
-      user ? normalizeImageUri(user->lockBackgroundPath()) : QString();
+      user ? VersionedImageUri(user->lockBackgroundPath()) : QString();
   if (uri == background_uri_) return;
 
   background_uri_ = uri;
@@ -462,6 +464,19 @@ void LockBackend::clearErrorMessage() {
 
 QString LockBackend::normalizeImageUri(const QString& path) {
   return imageUri(path);
+}
+
+QString LockBackend::VersionedImageUri(const QString& path) {
+  const QString uri = imageUri(path);
+  const QUrl url(uri);
+  if (!url.isLocalFile()) return uri;
+  const QFileInfo info(url.toLocalFile());
+  if (!info.exists()) return uri;
+  QUrl versioned = url;
+  versioned.setQuery(QStringLiteral("v=%1-%2")
+                         .arg(info.lastModified().toMSecsSinceEpoch())
+                         .arg(info.size()));
+  return versioned.toString();
 }
 
 QString LockBackend::powerActionToString(

@@ -75,6 +75,7 @@ class LockBackendTest : public QObject {
   void setKbLayoutAndShowUserList();
   void switchUserUsesWorker();
   void lockedOutStateFollowsUser();
+  void rewrittenWallpaperGetsNewUri();
 };
 
 void LockBackendTest::userModelMirrorsSessionModel() {
@@ -255,6 +256,35 @@ void LockBackendTest::lockedOutStateFollowsUser() {
   model.currentUser()->startLock();
   QVERIFY(backend.LockedOut());
   QVERIFY(backend.LockMinutes() > 0);
+}
+
+void LockBackendTest::rewrittenWallpaperGetsNewUri() {
+  QTemporaryDir dir;
+  QVERIFY(dir.isValid());
+  const QString path = dir.filePath("lock-wallpaper-override");
+  auto write = [&](const QByteArray& data, qint64 mtime) {
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    file.write(data);
+    file.setFileTime(QDateTime::fromMSecsSinceEpoch(mtime),
+                     QFileDevice::FileModificationTime);
+  };
+  write("first", 1700000000000);
+  const QString first = gxde::lock::LockBackend::VersionedImageUri(path);
+  QCOMPARE(QUrl(first).toLocalFile(), path);
+  QCOMPARE(gxde::lock::LockBackend::VersionedImageUri(path), first);  // stable
+
+  // The override is rewritten in place with another picture.
+  write("second picture", 1700000005000);
+  const QString second = gxde::lock::LockBackend::VersionedImageUri(path);
+  QVERIFY(second != first);
+  QCOMPARE(QUrl(second).toLocalFile(), path);
+
+  // Non-local and missing files are passed through.
+  QCOMPARE(gxde::lock::LockBackend::VersionedImageUri(":/img/bg.jpg"),
+           QString("qrc:/img/bg.jpg"));
+  QCOMPARE(gxde::lock::LockBackend::VersionedImageUri(dir.filePath("missing")),
+           QUrl::fromLocalFile(dir.filePath("missing")).toString());
 }
 
 QTEST_GUILESS_MAIN(LockBackendTest)

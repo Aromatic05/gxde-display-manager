@@ -153,6 +153,10 @@ class LockBackend : public QObject {
   void setErrorMessage(const QString& message);
   void clearErrorMessage();
   static QString normalizeImageUri(const QString& path);
+ public:
+  static QString VersionedImageUri(const QString& path);
+
+ private:
   static QString powerActionToString(SessionBaseModel::PowerAction action);
   static SessionBaseModel::PowerAction powerActionFromString(
       const QString& action);
