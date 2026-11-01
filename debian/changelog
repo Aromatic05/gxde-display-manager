@@ -1,4 +1,4 @@
-gxde-display-manager-se (1.3.6-gxde1) unstable; urgency=medium
+gxde-display-manager-se (1.3.6-gxde2) unstable; urgency=medium
 
   * 使用Qt Quick重制锁屏模块
   * 新增指纹支持
