@@ -1,4 +1,4 @@
-<!-- media-playback-start.svg from linuxdeepin/deepin-icon-theme (bloom/actions/24/media-playback-start.svg, commit 5d11ba4), GPL-3.0-or-later. Bloom, the DDE V23 icon theme. Recolored white for the dark lock screen. -->
+<!-- media-playback-start.svg from linuxdeepin/deepin-icon-theme (bloom/actions/24/media-playback-start.svg, commit 5d11ba4), GPL-3.0-or-later. Bloom, the DDE V23 icon theme. Recolored white for the dark lock screen; shifted 1px right (translate 6 -> 7) so the triangle looks centered in the round button. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <path fill="#FFFFFF" d="M1,10.3154578 L8.91185795,5.99989893 L1,1.68334618 L1,10.3154578 Z M0,0 L1.1015625,0.5996094 L11,6 L0,12 L0,0 Z" transform="translate(6 6)"/>
+  <path fill="#FFFFFF" d="M1,10.3154578 L8.91185795,5.99989893 L1,1.68334618 L1,10.3154578 Z M0,0 L1.1015625,0.5996094 L11,6 L0,12 L0,0 Z" transform="translate(7 6)"/>
 </svg>
