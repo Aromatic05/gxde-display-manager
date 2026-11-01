@@ -1,3 +1,9 @@
+gxde-display-manager-se (1.3.6-gxde5) unstable; urgency=medium
+
+  * 按用户要求提供Win11样式的时钟
+
+ -- CharOfString <root@charofstring.cc> Sat, 31 Oct 2026 21:38:11 -0500
+
 gxde-display-manager-se (1.3.6-gxde4) unstable; urgency=medium
 
   * 细调UI
