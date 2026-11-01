@@ -33,6 +33,10 @@ Item {
   property bool passwordStage: false
   property real loginProgress: passwordStage ? 1.0 : 0.0
   property bool mediaCardRequested: false
+  property bool keyboardRequested: false
+  readonly property real keyboardInset: keyboardPanel.visible
+    ? (keyboardPanel.height + keyboardPanel.screenMargin) * keyboardPanel.slide
+    : 0
 
   Behavior on loginProgress {
     enabled: screen.windowVisible
@@ -76,7 +80,7 @@ Item {
     }
     screen.passwordStage = false
     screen.mediaCardRequested = false
-    vkbLoader.active = false
+    screen.keyboardRequested = false
     loginCard.clearPassword()
     screen.forceActiveFocus()
     screen.rearmFingerprint()
@@ -190,7 +194,7 @@ Item {
       screen.resetReveal()
       screen.passwordStage = false
       screen.mediaCardRequested = false
-      vkbLoader.active = false
+      screen.keyboardRequested = false
       loginCard.clearPassword()
     }
   }
@@ -282,10 +286,15 @@ Item {
     readonly property real centerY: Math.round((parent.height - height
       - (notificationPill.shown ? notificationPill.height + 20 : 0)) / 2)
 
+    readonly property bool crowded: Math.round((parent.height
+      - (keyboardPanel.height + keyboardPanel.screenMargin)
+      - loginCard.height) / 2) < topY + height + 12
+
     anchors.horizontalCenter: parent.horizontalCenter
     y: Math.round(centerY + (topY - centerY) * screen.clockProgress)
     referenceHeight: parent.height
     compact: screen.clockProgress
+    opacity: crowded && keyboardPanel.visible ? 1 - keyboardPanel.slide : 1
   }
 
   NotificationPill {
@@ -322,10 +331,10 @@ Item {
 
   LoginCard {
     id: loginCard
+    objectName: "loginCard"
 
     anchors.centerIn: parent
-    anchors.verticalCenterOffset: vkbLoader.active
-      ? -Math.round(Math.min(vkbLoader.height / 2, parent.height * 0.18)) : 0
+    anchors.verticalCenterOffset: -Math.round(screen.keyboardInset / 2)
     visible: screen.primaryScreen
       && (screen.passwordStage || screen.cardProgress > 0)
     enabled: screen.passwordStage && screen.backend !== null
@@ -361,7 +370,7 @@ Item {
 
     anchors.right: parent.right
     anchors.rightMargin: 28
-    y: hiddenY + (shownY - hiddenY) * revealProgress
+    y: hiddenY + (shownY - hiddenY) * revealProgress - screen.keyboardInset
     opacity: revealProgress
     spacing: 12
     visible: screen.primaryScreen && screen.ready
@@ -420,7 +429,7 @@ Item {
       visible: screen.virtualKeyboardAvailable
       source: "qrc:/icons/keyboard.svg"
       accessibleName: qsTr("虚拟键盘")
-      onClicked: vkbLoader.active = !vkbLoader.active
+      onClicked: screen.keyboardRequested = !screen.keyboardRequested
     }
 
     IconButton {
@@ -437,7 +446,8 @@ Item {
   MediaIndicator {
     id: mediaIndicator
 
-    readonly property bool shown: screen.primaryScreen && !vkbLoader.active
+    readonly property bool shown: screen.primaryScreen
+      && !screen.keyboardRequested
       && (screen.passwordStage
             ? screen.mediaCardRequested && (hasMedia || hasAudio)
             : hasMedia)
@@ -472,21 +482,63 @@ Item {
     onTriggered: function(action) { screen.requestPower(action) }
   }
 
-  Loader {
-    id: vkbLoader
+  Item {
+    id: keyboardPanel
 
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.bottom: parent.bottom
-    width: Math.min(parent.width - 32, 900)
-    height: item ? item.implicitHeight : 0
-    active: false
-    sourceComponent: Component {
-      VirtualKeyboardPanel { }
+    readonly property real screenMargin: 12
+    readonly property real padding: 8
+    readonly property bool open: screen.keyboardRequested
+      && screen.passwordStage && keyboardLoader.status === Loader.Ready
+    property real slide: open ? 1 : 0
+
+    objectName: "keyboardPanel"
+    width: Math.min(parent.width - 2 * screenMargin, 960)
+    height: (keyboardLoader.item ? keyboardLoader.item.height : 0)
+      + 2 * padding
+    x: Math.round((parent.width - width) / 2)
+    y: Math.round(parent.height - (height + screenMargin) * slide)
+    visible: screen.primaryScreen && slide > 0
+
+    Behavior on slide {
+      enabled: screen.windowVisible
+      NumberAnimation {
+        duration: keyboardPanel.open ? 220 : 180
+        easing.type: keyboardPanel.open ? Easing.OutCubic : Easing.InCubic
+      }
     }
 
-    onLoaded: {
-      if (item) {
-        item.width = Qt.binding(function() { return vkbLoader.width })
+    Rectangle {
+      anchors.fill: parent
+      radius: 8
+      color: "#b8121720"
+      border.width: 1
+      border.color: "#2effffff"
+    }
+
+    Loader {
+      id: keyboardLoader
+
+      x: keyboardPanel.padding
+      y: keyboardPanel.padding
+      width: keyboardPanel.width - 2 * keyboardPanel.padding
+      active: false
+      asynchronous: true
+
+      sourceComponent: Component {
+        VirtualKeyboardPanel { }
+      }
+
+      onLoaded: {
+        if (item) {
+          item.width = Qt.binding(function() { return keyboardLoader.width })
+        }
+      }
+    }
+
+    Connections {
+      target: screen
+      function onKeyboardRequestedChanged() {
+        if (screen.keyboardRequested) keyboardLoader.active = true
       }
     }
   }
