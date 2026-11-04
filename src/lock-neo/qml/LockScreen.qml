@@ -209,6 +209,19 @@ Item {
     }
   }
 
+  // main.cc moves the prompt between windows as outputs come and go. The new
+  // owner takes keyboard focus; the old one drops back to the clock stage.
+  onPrimaryScreenChanged: {
+    if (screen.primaryScreen) {
+      if (screen.windowVisible) screen.forceActiveFocus()
+    } else {
+      screen.closePopups()
+      screen.passwordStage = false
+      screen.keyboardRequested = false
+      loginCard.clearPassword()
+    }
+  }
+
   Component.onCompleted: {
     screen.resetNotifications()
     screen.startReveal()

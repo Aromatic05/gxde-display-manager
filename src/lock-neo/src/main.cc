@@ -423,11 +423,74 @@ int main(int argc, char* argv[]) {
   unlockFadeTimer.setSingleShot(true);
   unlockFadeTimer.setInterval(kUnlockFadeTimeoutMs);
 
+  grabKeyboard = [&](QQuickWindow* window) {
+    if (!window || demo || !useX11) return;
+
+    auto* native =
+        qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!native || !native->display()) return;
+
+    const int result = XGrabKeyboard(
+        native->display(), static_cast<Window>(window->winId()), True,
+        GrabModeAsync, GrabModeAsync, CurrentTime);
+    static int failures = 0;
+    if (result == 0) {
+      failures = 0;
+      return;
+    }
+    if (++failures >= 15) {
+      qWarning() << "Failed to grab the keyboard for the lock screen.";
+      failures = 0;
+      return;
+    }
+    QTimer::singleShot(100, window, [&grabKeyboard, window] {
+      grabKeyboard(window);
+    });
+  };
+
+  auto releaseKeyboard = [&] {
+    if (demo || !useX11) return;
+    auto* native =
+        qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (native && native->display()) {
+      XUngrabKeyboard(native->display(), CurrentTime);
+    }
+  };
+
+  // Exactly one window carries the password prompt. Screens come and go while
+  // locked (monitors that drop off the bus in deep sleep, docks, KVMs), and
+  // the primary output can change underneath us; a stale per-window flag
+  // would leave every window without a prompt and the user locked out.
+  // Re-derive the owner whenever the screen set or the primary changes.
+  auto syncPrimaryWindow = [&] {
+    QQuickWindow* next = windows.value(QGuiApplication::primaryScreen());
+    if (!next && !windows.isEmpty()) {
+      next = windows.value(QGuiApplication::screens().value(0));
+      if (!next) next = windows.cbegin().value();
+    }
+
+    const bool changed = next != primaryWindow;
+    primaryWindow = next;
+    for (QQuickWindow* window : std::as_const(windows)) {
+      window->setProperty("primaryScreen", window == primaryWindow);
+    }
+
+    if (!changed || !primaryWindow || demo || !model.isShow()) return;
+    if (useX11) {
+      releaseKeyboard();
+      grabKeyboard(primaryWindow);
+    }
+    QTimer::singleShot(0, primaryWindow, [window = primaryWindow] {
+      window->requestActivate();
+    });
+  };
+
   auto destroyWindow = [&](QScreen* screen) {
     QQuickWindow* window = windows.take(screen);
     if (!window) return;
     if (window == primaryWindow) primaryWindow = nullptr;
     delete window;
+    syncPrimaryWindow();
   };
 
   auto destroyAll = [&] {
@@ -498,42 +561,9 @@ int main(int argc, char* argv[]) {
         [window] { QMetaObject::invokeMethod(window, "handleShowUserList"); });
 
     windows.insert(screen, window);
-    if (screen == QGuiApplication::primaryScreen()) primaryWindow = window;
-
     window->setProperty("shown", model.isShow());
+    syncPrimaryWindow();
     return window;
-  };
-
-  grabKeyboard = [&](QQuickWindow* window) {
-    if (!window || demo || !useX11) return;
-
-    auto* native =
-        qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
-    if (!native || !native->display()) return;
-
-    const int result = XGrabKeyboard(
-        native->display(), static_cast<Window>(window->winId()), True,
-        GrabModeAsync, GrabModeAsync, CurrentTime);
-    if (result == 0) return;
-
-    static int failures = 0;
-    if (++failures >= 15) {
-      qWarning() << "Failed to grab the keyboard for the lock screen.";
-      failures = 0;
-      return;
-    }
-    QTimer::singleShot(100, window, [&grabKeyboard, window] {
-      grabKeyboard(window);
-    });
-  };
-
-  auto releaseKeyboard = [&] {
-    if (demo || !useX11) return;
-    auto* native =
-        qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
-    if (native && native->display()) {
-      XUngrabKeyboard(native->display(), CurrentTime);
-    }
   };
 
   auto createAll = [&] {
@@ -560,13 +590,7 @@ int main(int argc, char* argv[]) {
   QObject::connect(&app, &QGuiApplication::screenRemoved, &app,
                    [&destroyWindow](QScreen* screen) { destroyWindow(screen); });
   QObject::connect(&app, &QGuiApplication::primaryScreenChanged, &app,
-                   [&](QScreen* screen) {
-                     primaryWindow = windows.value(screen);
-                     if (model.isShow() && primaryWindow && !demo && useX11) {
-                       releaseKeyboard();
-                       grabKeyboard(primaryWindow);
-                     }
-                   });
+                   [&syncPrimaryWindow](QScreen*) { syncPrimaryWindow(); });
 
   QObject::connect(&model, &SessionBaseModel::visibleChanged, &app,
                    [&](bool visible) {
