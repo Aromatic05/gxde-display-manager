@@ -6,16 +6,24 @@
 # Copyright (C) 2001-2005 Oswald Buddenhagen <ossi@kde.org>
 
 sync_gxdm_activation_env() {
+  # systemd --user survives graphical logouts. Remove the previous Wayland
+  # socket from both activation environments when entering an X11 session.
+  unset WAYLAND_DISPLAY
   if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd \
+      WAYLAND_DISPLAY= \
       DESKTOP_SESSION DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP \
       XDG_RUNTIME_DIR XDG_SEAT XDG_SEAT_PATH XDG_SESSION_CLASS \
       XDG_SESSION_DESKTOP XDG_SESSION_ID XDG_SESSION_PATH XDG_SESSION_TYPE \
       XDG_VTNR >/dev/null 2>&1
   fi
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user unset-environment WAYLAND_DISPLAY >/dev/null 2>&1
+  fi
 }
 
 # Note that the respective logout scripts are not sourced.
+unset WAYLAND_DISPLAY
 case $SHELL in
   */bash)
     [ -z "$BASH" ] && exec $SHELL --login $0 "$@"
